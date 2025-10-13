@@ -18,6 +18,7 @@ import pytest
 from moto import mock_aws
 
 from ampel.lsst.archive.server.s3 import get_s3_bucket
+from sqlmodel import SQLModel, create_engine
 
 psycopg2.extensions.set_wait_callback(psycopg2.extras.wait_select)
 
@@ -169,23 +170,21 @@ def empty_archive(archive):
     """
     Yield archive database, dropping all rows when finished
     """
-    from sqlalchemy import MetaData, create_engine
 
     engine = create_engine(archive)
-    meta = MetaData()
-    meta.reflect(bind=engine)
+    SQLModel.metadata.create_all(engine)
+    # delete in order of foreign key dependencies
+    order = ['alert', 'avroblob', 'avroschema']
     try:
         with engine.connect() as connection:
-            for name, table in meta.tables.items():
-                if name != "versions":
-                    connection.execute(table.delete())
+            for table in order:
+                connection.execute(SQLModel.metadata.tables[table].delete())
             connection.commit()
         yield archive
     finally:
         with engine.connect() as connection:
-            for name, table in meta.tables.items():
-                if name != "versions":
-                    connection.execute(table.delete())
+            for table in order:
+                connection.execute(SQLModel.metadata.tables[table].delete())
             connection.commit()
 
 
@@ -204,28 +203,36 @@ def alert_archive(empty_archive, alert_generator):
 
 @pytest.fixture(scope="session")
 def alert_tarball():
-    return join(dirname(__file__), "test-data", "ztf_public_20180819_mod1000.tar.gz")
+    return join(dirname(__file__), "test-data", "2025-09-20.partition0.tar.gz")
 
 
 def walk_tarball(fname, extension=".avro"):
     with tarfile.open(fname) as archive:
-        for info in archive:
+        members = iter(archive)
+        schema_file = next(members)
+        assert schema_file.name.endswith(".json")
+        schema = archive.extractfile(schema_file).read().decode()
+        for info in members:
             if info.isfile():
                 fo = archive.extractfile(info)
                 if info.name.endswith(extension):
-                    yield fo
-                elif info.name.endswith(".tar.gz"):
-                    yield from walk_tarball(fname, extension)
+                    yield schema, fo
 
+@pytest.fixture(scope="session")
+def alert_payload_generator(alert_tarball):
+    def alerts():
+        for schema, fileobj in walk_tarball(alert_tarball):
+            yield schema, fileobj.read()
+
+    return alerts
 
 @pytest.fixture(scope="session")
 def alert_generator(alert_tarball):
     def alerts(with_schema=False):
-        for fileobj in itertools.islice(walk_tarball(alert_tarball), 0, 1000, 1):
-            reader = fastavro.reader(fileobj)
-            alert = next(reader)
+        for schema, fileobj in itertools.islice(walk_tarball(alert_tarball), 0, 1000, 1):
+            alert = fastavro.schemaless_reader(fileobj, writer_schema=json.loads(schema))
             if with_schema:
-                yield alert, reader.writer_schema
+                yield alert, schema
             else:
                 yield alert
 

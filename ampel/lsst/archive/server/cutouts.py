@@ -6,8 +6,8 @@ from typing import Any, BinaryIO
 import fastavro
 from fastavro._read_py import BLOCK_READERS, BinaryDecoder
 
-with open(pathlib.Path(__file__).parent / "cutout_schema.json") as f:
-    CUTOUT_SCHEMA = json.load(f)
+# with open(pathlib.Path(__file__).parent / "cutout_schema.json") as f:
+#     CUTOUT_SCHEMA = json.load(f)
 
 ALERT_SCHEMAS: dict[tuple[str, str], Any] = {}
 

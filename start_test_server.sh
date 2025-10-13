@@ -1,24 +1,19 @@
 #! /usr/bin/env sh
 
 postgres=$(docker run \
-    -e ARCHIVE_READ_USER=ampel-readonly \
-    -e ARCHIVE_READ_USER_PASSWORD=seekrit \
-    -e ARCHIVE_WRITE_USER=ampel-writer \
-    -e ARCHIVE_WRITE_USER_PASSWORD=seekrit \
-    -e POSTGRES_DB=ztfarchive \
+    -e POSTGRES_DB=lsst \
     -e POSTGRES_USER=ampel \
     -e POSTGRES_PASSWORD=seekrit \
-    -v $(pwd)/tests/test-data/initdb/archive:/docker-entrypoint-initdb.d \
     -d \
     -P \
     --rm \
-    ampelproject/postgres:14.1)
+    postgres:18.0)
 
 host_port() {
     docker inspect $1 | jq -r '.[0].NetworkSettings.Ports["'$2'"][0].HostPort'
 }
 
-POSTGRES_URI=postgresql://ampel:seekrit@localhost:$(host_port $postgres "5432/tcp")/ztfarchive
+POSTGRES_URI=postgresql://ampel:seekrit@localhost:$(host_port $postgres "5432/tcp")/lsst
 
 
 localstack=$(docker run \
