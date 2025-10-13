@@ -10,8 +10,8 @@ from sqlalchemy import select, text
 from sqlalchemy.sql.expression import BinaryExpression, BooleanClauseList
 from sqlalchemy.sql.functions import count
 
-from ampel.ztf.archive.ArchiveDB import ArchiveDB
-from ampel.ztf.t0.ArchiveUpdater import ArchiveUpdater
+from ampel.lsst.archive.ArchiveDB import ArchiveDB
+from ampel.lsst.t0.ArchiveUpdater import ArchiveUpdater
 
 
 def test_walk_tarball(alert_generator):

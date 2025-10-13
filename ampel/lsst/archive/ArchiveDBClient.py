@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# File              : ampel/ztf/archive/ArchiveDBClient.py
+# File              : ampel/lsst/archive/ArchiveDBClient.py
 # License           : BSD-3-Clause
 # Author            : Jakob van Santen <jakob.van.santen@desy.de>
 # Date              : 10.04.2018

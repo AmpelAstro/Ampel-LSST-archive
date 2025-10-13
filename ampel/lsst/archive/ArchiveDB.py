@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# File              : ampel/ztf/archive/ArchiveDB.py
+# File              : ampel/lsst/archive/ArchiveDB.py
 # License           : BSD-3-Clause
 # Author            : Jakob van Santen <jakob.van.santen@desy.de>
 # Date              : 10.04.2018
@@ -35,11 +35,11 @@ from sqlalchemy.sql.elements import (
 from sqlalchemy.sql.expression import func
 from sqlalchemy.sql.schema import Table
 
-from ampel.ztf.archive.ArchiveDBClient import ArchiveDBClient
+from ampel.lsst.archive.ArchiveDBClient import ArchiveDBClient
 
 from .types import FilterClause
 
-log = logging.getLogger("ampel.ztf.archive")
+log = logging.getLogger("ampel.lsst.archive")
 
 
 def without_keys(table, filter=lambda name: True):

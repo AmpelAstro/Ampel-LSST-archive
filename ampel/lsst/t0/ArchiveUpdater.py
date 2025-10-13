@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# File              : ampel/ztf/t0/ArchiveUpdater.py
+# File              : ampel/lsst/t0/ArchiveUpdater.py
 # License           : BSD-3-Clause
 # Author            : Jakob van Santen <jakob.van.santen@desy.de>
 # Date              : 10.04.2018
@@ -17,7 +17,7 @@ from sqlalchemy import Connection, UniqueConstraint, bindparam, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.expression import func, tuple_
 
-from ampel.ztf.archive.ArchiveDBClient import ArchiveDBClient
+from ampel.lsst.archive.ArchiveDBClient import ArchiveDBClient
 
 
 class ArchiveUpdater(ArchiveDBClient):

@@ -8,13 +8,13 @@ from fastapi.security import HTTPBearer
 from fastapi.security.http import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ValidationError
 
-from ampel.ztf.archive.ArchiveDB import ArchiveDB, select
+from ampel.lsst.archive.ArchiveDB import ArchiveDB, select
 
 from .db import get_archive
 from .settings import settings
 
 user_bearer = HTTPBearer(scheme_name="Ampel API token")
-token_bearer = HTTPBearer(scheme_name="ZTF archive access token")
+token_bearer = HTTPBearer(scheme_name="LSST archive access token")
 
 
 class User(BaseModel):

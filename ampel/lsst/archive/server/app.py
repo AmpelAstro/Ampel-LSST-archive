@@ -23,15 +23,15 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
-from ampel.ztf.archive.ArchiveDB import (
+from ampel.lsst.archive.ArchiveDB import (
     ArchiveDB,
     GroupInfo,
     GroupNotFoundError,
     NoSuchColumnError,
 )
-from ampel.ztf.archive.server.cutouts import extract_alert, pack_records
-from ampel.ztf.archive.server.skymap import deres
-from ampel.ztf.t0.ArchiveUpdater import ArchiveUpdater
+from ampel.lsst.archive.server.cutouts import extract_alert, pack_records
+from ampel.lsst.archive.server.skymap import deres
+from ampel.lsst.t0.ArchiveUpdater import ArchiveUpdater
 
 from .db import (
     OperationalError,
@@ -71,17 +71,17 @@ if TYPE_CHECKING:
 
 
 DESCRIPTION = """
-Query ZTF alerts issued by IPAC
+Query LSST alerts issued by IPAC
 
 ## Authorization
 
 Some endpoints require an authorization token.
-You can create a *ZTF archive access token* using the "Archive tokens" tab on the [Ampel dashboard](https://ampel.zeuthen.desy.de/live/dashboard/tokens).
+You can create a *LSST archive access token* using the "Archive tokens" tab on the [Ampel dashboard](https://ampel.zeuthen.desy.de/live/dashboard/tokens).
 These tokens are persistent, and associated with your GitHub username.
 """
 
 app = FastAPI(
-    title="ZTF Alert Archive Service",
+    title="LSST Alert Archive Service",
     description=DESCRIPTION,
     version="3.1.0",
     root_path=settings.root_path,
@@ -231,7 +231,7 @@ def get_cutouts(
 
 def verify_authorized_programid(
     programid: Optional[int] = Query(
-        None, description="ZTF observing program to query"
+        None, description="LSST observing program to query"
     ),
     auth: AuthToken = Depends(verify_access_token),
 ) -> Optional[int]:
@@ -254,7 +254,7 @@ def verify_authorized_programid(
     response_model_exclude_none=True,
 )
 def get_alerts_for_object(
-    objectId: str = Path(..., description="ZTF object name"),
+    objectId: str = Path(..., description="LSST object name"),
     jd_start: Optional[float] = Query(
         None, description="minimum Julian Date of observation"
     ),
@@ -295,7 +295,7 @@ def get_alerts_for_object(
     response_model_exclude_none=True,
 )
 def get_photopoints_for_object(
-    objectId: str = Path(..., description="ZTF object name"),
+    objectId: str = Path(..., description="LSST object name"),
     jd_start: Optional[float] = Query(
         None, description="minimum Julian Date of observation"
     ),
@@ -673,7 +673,7 @@ def create_stream_from_query(
                 },
             },
             "object": {
-                "summary": "ZTF-ID search",
+                "summary": "LSST-ID search",
                 "description": "Retrieve alerts for all ObjectIds provided",
                 "value": {
                     "objectId": ["ZTF19aapreis", "ZTF19aatubsj"],

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
         description="Timeout for asynchronous queries, in seconds",
     )
     s3_endpoint_url: Optional[HttpUrl] = Field(None, validation_alias="S3_ENDPOINT_URL")
-    s3_bucket: str = Field("ampel-ztf-cutout-archive", validation_alias="S3_BUCKET")
+    s3_bucket: str = Field("ampel-lsst-cutout-archive", validation_alias="S3_BUCKET")
     jwt_secret_key: str = Field(
         secrets.token_urlsafe(64), validation_alias="JWT_SECRET_KEY"
     )
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     partnership_identities: set[str] = Field(
         {"ZwickyTransientFacility"},
         validation_alias="PARTNERSHIP_IDENTITIES",
-        description="Usernames, teams, and orgs allowed to create persistent tokens with access to ZTF partnership alerts",
+        description="Usernames, teams, and orgs allowed to create persistent tokens with access to LSST partnership alerts",
     )
     query_debug: bool = Field(False, validation_alias="QUERY_DEBUG")
     model_config = SettingsConfigDict(env_file=".env")
@@ -43,6 +43,6 @@ class Settings(BaseSettings):
 settings = Settings()  # type: ignore[call-arg]
 
 if settings.query_debug:
-    from ampel.ztf.archive.ArchiveDB import ArchiveDB
+    from ampel.lsst.archive.ArchiveDB import ArchiveDB
 
     ArchiveDB.query_debug = True

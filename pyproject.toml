@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "ampel-ztf-archive"
-version = "0.8.0-alpha.0"
-description = "ZTF alert archive for the Ampel system"
+name = "ampel-lsst-archive"
+version = "0.0.1-alpha.0"
+description = "LSST alert archive for the Ampel system"
 authors = [
     "Jakob van Santen <jakob.van.santen@desy.de>",
 ]
@@ -11,7 +11,7 @@ maintainers = [
 license = "BSD-3-Clause"
 readme = "README.md"
 homepage = "https://ampelproject.github.io"
-repository = "https://github.com/AmpelProject/Ampel-ZTF-archive"
+repository = "https://github.com/AmpelProject/Ampel-LSST-archive"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -23,11 +23,8 @@ packages = [
     {include = "ampel"}
 ]
 
-[tool.poetry.scripts]
-ampel-ztf-archive-consumer-groups = 'ampel.ztf.archive.ArchiveDB:consumer_groups_command'
-
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.12"
 sqlalchemy = "~2.0.0"
 psycopg2 = "^2.8.6"
 fastapi = {version = "^0.115.0", optional = true}
@@ -38,8 +35,10 @@ fastavro = "^1.9.2"
 astropy-healpix = "^1.0.0"
 pydantic-settings = {version = "^2.5.2", optional = true}
 uvicorn = {version = "^0.32.0", optional = true}
+sqlmodel = "^0.0.27"
+"backports.zstd" = {version = "*", python = "<3.14"}
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
 pytest-cov = "^6.0.0"
 coverage = {extras = ["toml"], version = "^7.6.4"}
@@ -113,6 +112,6 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"ampel/ztf/archive/server/*" = ["B008"]
+"ampel/lsst/archive/server/*" = ["B008"]
 "migrations/*" = ["T201"]
 "tests/*" = ["T201", "SLF001", "PLR2004", "PERF", "RUF018"]

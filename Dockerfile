@@ -36,6 +36,6 @@ ENV XDG_CACHE_HOME=/var/cache XDG_CONFIG_HOME=/var/cache
 RUN apt-get update && apt-get install -y libpq5 && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /venv /venv
-CMD ["/venv/bin/uvicorn", "ampel.ztf.archive.server.app:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["/venv/bin/uvicorn", "ampel.lsst.archive.server.app:app", "--host", "0.0.0.0", "--port", "80"]
 
 EXPOSE 80

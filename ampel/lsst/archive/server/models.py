@@ -401,7 +401,7 @@ class AlertCutouts(AlertBase):
 
 class Alert_33(AlertCutouts):
     """
-    avro alert schema for ZTF (www.ztf.caltech.edu)
+    avro alert schema for LSST (www.lsst.caltech.edu)
     """
 
     schemavsn: Union[

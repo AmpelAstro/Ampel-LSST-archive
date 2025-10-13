@@ -17,7 +17,7 @@ import psycopg2.extras
 import pytest
 from moto import mock_aws
 
-from ampel.ztf.archive.server.s3 import get_s3_bucket
+from ampel.lsst.archive.server.s3 import get_s3_bucket
 
 psycopg2.extensions.set_wait_callback(psycopg2.extras.wait_select)
 
@@ -191,7 +191,7 @@ def empty_archive(archive):
 
 @pytest.fixture
 def alert_archive(empty_archive, alert_generator):
-    from ampel.ztf.t0.ArchiveUpdater import ArchiveUpdater
+    from ampel.lsst.t0.ArchiveUpdater import ArchiveUpdater
 
     updater = ArchiveUpdater(empty_archive)
     from itertools import islice
@@ -250,7 +250,7 @@ def mock_s3_bucket(_aws_credentials):
 
 @pytest.fixture
 def localstack_s3_bucket(_aws_credentials, localstack_s3, monkeypatch):
-    from ampel.ztf.archive.server.settings import settings
+    from ampel.lsst.archive.server.settings import settings
 
     monkeypatch.setattr(settings, "s3_endpoint_url", localstack_s3)
     get_s3_bucket.cache_clear()

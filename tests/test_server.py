@@ -21,11 +21,11 @@ from starlette.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from ampel.ztf.archive.ArchiveDB import ArchiveDB
-from ampel.ztf.archive.server.cutouts import ALERT_SCHEMAS, extract_alert, pack_records
-from ampel.ztf.archive.server.db import get_archive, get_archive_updater
-from ampel.ztf.archive.server.s3 import get_range, get_s3_bucket
-from ampel.ztf.archive.server.tokens import AuthToken
+from ampel.lsst.archive.ArchiveDB import ArchiveDB
+from ampel.lsst.archive.server.cutouts import ALERT_SCHEMAS, extract_alert, pack_records
+from ampel.lsst.archive.server.db import get_archive, get_archive_updater
+from ampel.lsst.archive.server.s3 import get_range, get_s3_bucket
+from ampel.lsst.archive.server.tokens import AuthToken
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
@@ -46,7 +46,7 @@ class BearerAuth(httpx.Auth):
 @pytest.fixture
 def mocked_app(monkeypatch: "MonkeyPatch", mocker: "MockerFixture", mock_s3_bucket):
     monkeypatch.setenv("ALLOWED_IDENTITIES", '["someorg","someorg/a-team"]')
-    from ampel.ztf.archive.server import app, db
+    from ampel.lsst.archive.server import app, db
 
     mocker.patch.object(db, "ArchiveDB")
     mocker.patch.object(db, "ArchiveUpdater")
@@ -59,7 +59,7 @@ def mocked_app(monkeypatch: "MonkeyPatch", mocker: "MockerFixture", mock_s3_buck
 
 @pytest.fixture
 def _mock_auth(mocker: "MockerFixture"):
-    from ampel.ztf.archive.server import tokens
+    from ampel.lsst.archive.server import tokens
 
     mocker.patch.object(
         tokens,
@@ -106,14 +106,14 @@ async def mock_client(mocked_app):
 @pytest.fixture
 def integration_app(monkeypatch: "MonkeyPatch", alert_archive, localstack_s3_bucket):
     monkeypatch.setattr(
-        "ampel.ztf.archive.server.settings.settings.archive_uri", alert_archive
+        "ampel.lsst.archive.server.settings.settings.archive_uri", alert_archive
     )
     monkeypatch.setattr(
-        "ampel.ztf.archive.server.settings.settings.allowed_identities",
+        "ampel.lsst.archive.server.settings.settings.allowed_identities",
         {"someorg", "someorg/a-team"},
     )
 
-    from ampel.ztf.archive.server import app
+    from ampel.lsst.archive.server import app
 
     assert app.settings.archive_uri == alert_archive
     assert app.settings.allowed_identities == {"someorg", "someorg/a-team"}
@@ -172,7 +172,7 @@ def test_parse_json_from_env(monkeypatch):
     """
     JSON gets parsed from env variables
     """
-    from ampel.ztf.archive.server.settings import Settings
+    from ampel.lsst.archive.server.settings import Settings
 
     assert Settings().allowed_identities != {"someorg", "someorg/a-team"}
     monkeypatch.setenv("ALLOWED_IDENTITIES", '["someorg","someorg/a-team"]')
@@ -216,7 +216,7 @@ async def test_basic_auth(
     status,
     mocker,
 ):
-    mocker.patch("ampel.ztf.archive.server.tokens.find_access_token").return_value = (
+    mocker.patch("ampel.lsst.archive.server.tokens.find_access_token").return_value = (
         None if auth is BearerAuth else AuthToken(0, "jiminy", False)
     )
     kwargs = {}
@@ -250,7 +250,7 @@ async def test_programid_auth(
     status_code,
 ):
     mocker.patch(
-        "ampel.ztf.archive.server.tokens.find_access_token"
+        "ampel.lsst.archive.server.tokens.find_access_token"
     ).return_value = AuthToken(0, "reader", partnership)
 
     response = await mock_client.get(
@@ -360,10 +360,10 @@ def _instant_timeout(monkeypatch: pytest.MonkeyPatch):
     """
     Set statement timeout to 1 ms
     """
-    from ampel.ztf.archive.server import db
+    from ampel.lsst.archive.server import db
 
     monkeypatch.setattr(
-        "ampel.ztf.archive.server.db.settings.default_statement_timeout", 1e-3
+        "ampel.lsst.archive.server.db.settings.default_statement_timeout", 1e-3
     )
     db.get_archive.cache_clear()
     yield
@@ -544,14 +544,14 @@ async def test_read_invalid_topic(
 
 @pytest.fixture
 def test_user():
-    from ampel.ztf.archive.server.tokens import User
+    from ampel.lsst.archive.server.tokens import User
 
     return User(name="flerpyherp", orgs=["someorg"], teams=["someorg/a-team"])
 
 
 @pytest.fixture
 def user_token(test_user):
-    from ampel.ztf.archive.server.settings import settings
+    from ampel.lsst.archive.server.settings import settings
 
     return jwt.encode(
         test_user.model_dump(),
@@ -626,7 +626,7 @@ async def test_forbidden_identity(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(
-        "ampel.ztf.archive.server.tokens.settings.allowed_identities", {"none", "such"}
+        "ampel.lsst.archive.server.tokens.settings.allowed_identities", {"none", "such"}
     )
     response = await integration_client.get("/tokens/", auth=BearerAuth(user_token))
     assert response.status_code == status.HTTP_403_FORBIDDEN
