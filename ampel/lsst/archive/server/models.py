@@ -1,7 +1,7 @@
 import math
 from base64 import b64encode
 from datetime import datetime
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Any, Literal, Optional, TypeAlias, Union
 
 from pydantic import (
     BaseModel,
@@ -368,25 +368,19 @@ class FPHist(BaseModel):
     sharpnr: Optional[float] = None
 
 
-class Cutout(BaseModel):
-    """
-    stampData is a gzipped FITS file, b64 encoded
-    """
-
-    fileName: str
-    # NB: ser_json_bytes="base64" uses a URL-safe alphabet, whereas b64encode
-    # uses +/ to represent 62 and 63. Use a serialization function to emit
-    # strings that can be properly decoded with b64decode. See:
-    # https://github.com/pydantic/pydantic/issues/7000
-    stampData: Annotated[
-        bytes,
-        PlainSerializer(lambda v: b64encode(v), return_type=bytes, when_used="json"),
-    ]
+# NB: ser_json_bytes="base64" uses a URL-safe alphabet, whereas b64encode
+# uses +/ to represent 62 and 63. Use a serialization function to emit
+# strings that can be properly decoded with b64decode. See:
+# https://github.com/pydantic/pydantic/issues/7000
+StampData: TypeAlias = Annotated[
+    bytes,
+    PlainSerializer(lambda v: b64encode(v), return_type=bytes, when_used="json"),
+]
 
 
 class AlertBase(BaseModel):
-    candid: int
-    objectId: str
+    diaSourceId: int
+    diaObjectId: int
     model_config = ConfigDict(
         ser_json_bytes="base64",
         val_json_bytes="base64",
@@ -394,9 +388,9 @@ class AlertBase(BaseModel):
 
 
 class AlertCutouts(AlertBase):
-    cutoutScience: Optional[Cutout] = None
-    cutoutTemplate: Optional[Cutout] = None
-    cutoutDifference: Optional[Cutout] = None
+    cutoutScience: None | StampData = None
+    cutoutTemplate: None | StampData = None
+    cutoutDifference: None | StampData = None
 
 
 class Alert_33(AlertCutouts):

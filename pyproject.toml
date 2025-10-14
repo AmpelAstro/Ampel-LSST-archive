@@ -38,6 +38,8 @@ uvicorn = {version = "^0.32.0"}
 sqlmodel = "^0.0.27"
 typer = "^0.19.2"
 confluent-kafka = {version = "^2.12.0", extras = ["avro", "schemaregistry"]}
+orjson = "^3.11.3"
+zstd-asgi = "^1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -87,6 +89,7 @@ ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py39"
+exclude = [ "ampel/lsst/archive/server/tokens.py" ]
 
 [tool.ruff.lint]
 select = [

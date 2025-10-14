@@ -10,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 
 from ampel.lsst.archive.ArchiveDB import ArchiveDB, select
 
-from .db import get_archive
+from .db import get_engine
 from .settings import settings
 
 user_bearer = HTTPBearer(scheme_name="Ampel API token")

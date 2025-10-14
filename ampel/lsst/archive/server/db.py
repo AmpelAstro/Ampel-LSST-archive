@@ -8,8 +8,6 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 from sqlmodel import create_engine
 
-from ampel.lsst.t0.ArchiveUpdater import ArchiveUpdater
-
 from .settings import settings
 
 

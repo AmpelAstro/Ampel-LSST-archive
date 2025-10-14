@@ -1,73 +1,43 @@
 import base64
-import hashlib
-import io
-import json
-import secrets
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
-from urllib.parse import urlsplit
+from typing import TYPE_CHECKING
 
-import fastavro
 import sqlalchemy
 from fastapi import (
-    BackgroundTasks,
-    Body,
     Depends,
     FastAPI,
     HTTPException,
-    Path,
-    Query,
-    Request,
     status,
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import ORJSONResponse
+from zstd_asgi import ZstdMiddleware
 
-from ampel.lsst.archive.ArchiveDB import (
-    ArchiveDB,
-    GroupInfo,
-    GroupNotFoundError,
-    NoSuchColumnError,
-)
-from ampel.lsst.archive.server.cutouts import extract_alert, pack_records
-from ampel.lsst.archive.server.skymap import deres
-from ampel.lsst.t0.ArchiveUpdater import ArchiveUpdater
+from ampel.lsst.archive.db import get_alert_from_s3
 
 from .db import (
     OperationalError,
-    get_archive,
-    get_archive_updater,
+    get_engine,
     handle_operationalerror,
 )
 from .models import (
-    Alert,
-    AlertChunk,
-    AlertCount,
     AlertCutouts,
-    AlertQuery,
-    HEALpixMapQuery,
-    HEALpixRegionCountQuery,
-    HEALpixRegionQuery,
-    ObjectQuery,
-    Stream,
-    StreamDescription,
-    Topic,
-    TopicDescription,
-    TopicQuery,
 )
-from .s3 import get_range, get_s3_bucket, get_url_for_key
+from .s3 import get_s3_bucket
 from .settings import settings
-from .tokens import (
-    AuthToken,
-    verify_access_token,
-    verify_write_token,
-)
-from .tokens import (
-    router as token_router,
-)
+
+# from .tokens import (
+#     AuthToken,
+#     verify_access_token,
+#     verify_write_token,
+# )
+# from .tokens import (
+#     router as token_router,
+# )
 
 if TYPE_CHECKING:
-    from mypy_boto3_s3.service_resource import Bucket
+    pass
 
 
 DESCRIPTION = """
@@ -85,6 +55,7 @@ app = FastAPI(
     description=DESCRIPTION,
     version="3.1.0",
     root_path=settings.root_path,
+    default_response_class=ORJSONResponse,
     openapi_tags=[
         {"name": "alerts", "description": "Retrieve alerts"},
         {
@@ -109,6 +80,7 @@ app = FastAPI(
     ],
 )
 
+app.add_middleware(ZstdMiddleware, minimum_size=1000)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
@@ -118,135 +90,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(token_router, prefix="/tokens")
+# app.include_router(token_router, prefix="/tokens")
 
 app.exception_handler(OperationalError)(handle_operationalerror)
 
 
-# NB: make deserialization depend on write auth to minimize attack surface
-async def deserialize_avro_body(
-    request: Request, auth: bool = Depends(verify_write_token)
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    data: bytes = await request.body()
-    try:
-        reader = fastavro.reader(io.BytesIO(data))
-    except ValueError as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, headers={"x-exception": str(exc)}
-        ) from exc
-    try:
-        content, schema = list(reader), reader.writer_schema
-    except StopIteration as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, headers={"x-exception": str(exc)}
-        ) from exc
-    return content, schema  # type: ignore[return-value]
-
-
-@app.post(
-    "/alerts",
-    tags=["alerts"],
-    response_model_exclude_none=True,
-)
-def post_alert_chunk(
-    content_and_schema: tuple[list[dict[str, Any]], dict[str, Any]] = Depends(
-        deserialize_avro_body
-    ),
-    archive: ArchiveUpdater = Depends(get_archive_updater),
-    bucket=Depends(get_s3_bucket),
-    auth: bool = Depends(verify_write_token),
-):
-    alerts, schema = content_and_schema
-
-    blob, ranges = pack_records(alerts, schema)
-    key = f'{hashlib.sha256(json.dumps(sorted(alert["candid"] for alert in alerts)).encode("utf-8")).hexdigest()}.avro'
-    md5 = base64.b64encode(hashlib.md5(blob).digest()).decode("utf-8")
-
-    obj = bucket.Object(key)
-
-    s3_response = obj.put(
-        Body=blob,
-        ContentMD5=md5,
-        Metadata={"schema-name": schema["name"], "schema-version": schema["version"]},
-    )
-    assert 200 <= s3_response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
-
-    try:
-        archive.insert_alert_chunk(
-            alerts, schema, archive_uri=get_url_for_key(bucket, key), ranges=ranges
-        )
-    except:
-        obj.delete()
-        raise
-
-
-def get_alert_from_s3(
-    candid: int,
-    db: ArchiveDB,
-    bucket: "Bucket",
-) -> Optional[dict]:
-    try:
-        uri, start, end = db.get_archive_segment(candid)
-    except (ValueError, TypeError):
-        return None
-    path = urlsplit(uri).path.split("/")
-    assert path[-2] == bucket.name
-    try:
-        return extract_alert(candid, *get_range(bucket, path[-1], start, end))
-    except KeyError:
-        return None
-
-
 @app.get(
-    "/alert/{candid}",
+    "/alert/{diaSourceId}",
     tags=["alerts"],
-    response_model=Alert,  # type: ignore[arg-type]
-    response_model_exclude_none=True,
+    # response_model=Alert,  # type: ignore[arg-type]
+    # response_model_exclude_none=True,
 )
 def get_alert(
-    candid: int,
-    db: ArchiveDB = Depends(get_archive),
+    diaSourceId: int,
+    engine: sqlalchemy.Engine = Depends(get_engine),
     bucket=Depends(get_s3_bucket),
 ):
     """
     Get a single alert by candidate id.
     """
-    if alert := get_alert_from_s3(candid, db, bucket):
-        return alert
-    if alert := db.get_alert(candid, with_history=True):
-        return alert
+    if alert := get_alert_from_s3(diaSourceId, engine, bucket):
+        return jsonable_encoder(
+            alert, custom_encoder={bytes: lambda b: base64.b64encode(b).decode("utf-8")}
+        )
+    # if alert := db.get_alert(candid, with_history=True):
+    #     return alert
     raise HTTPException(status.HTTP_404_NOT_FOUND)
 
 
-@app.get("/alert/{candid}/cutouts", tags=["cutouts"], response_model=AlertCutouts)
+@app.get("/alert/{diaSourceId}/cutouts", tags=["cutouts"], response_model=AlertCutouts)
 def get_cutouts(
-    candid: int,
-    db: ArchiveDB = Depends(get_archive),
+    diaSourceId: int,
+    engine: sqlalchemy.Engine = Depends(get_engine),
     bucket=Depends(get_s3_bucket),
 ):
-    if alert := get_alert_from_s3(candid, db, bucket):
-        return alert
+    if alert := get_alert_from_s3(diaSourceId, engine, bucket):
+        return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
     raise HTTPException(status_code=404)
 
-
-def verify_authorized_programid(
-    programid: Optional[int] = Query(
-        None, description="LSST observing program to query"
-    ),
-    auth: AuthToken = Depends(verify_access_token),
-) -> Optional[int]:
-    if not auth.partnership:
-        if programid is None:
-            return 1
-        if programid != 1:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Not authorized for programid {programid}",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    return programid
-
-
+'''
 @app.get(
     "/object/{objectId}/alerts",
     tags=["alerts"],
@@ -269,9 +151,9 @@ def get_alerts_for_object(
         description="Maximum number of alerts to return",
     ),
     start: int = Query(0, description="Return alerts starting at index"),
-    archive: ArchiveDB = Depends(get_archive),
-    auth: AuthToken = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: AuthToken = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ):
     """
     Get all alerts for the given object.
@@ -303,9 +185,9 @@ def get_photopoints_for_object(
         None, description="maximum Julian Date of observation"
     ),
     upper_limits: bool = Query(True, description="include upper limits"),
-    archive: ArchiveDB = Depends(get_archive),
-    auth: AuthToken = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: AuthToken = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ):
     """
     Get all detections and upper limits for the given object, consolidated into
@@ -337,9 +219,9 @@ def get_alerts_in_time_range(
         None,
         description="Identifier of a previous query to continue. This token expires after 24 hours.",
     ),
-    archive: ArchiveDB = Depends(get_archive),
-    auth: bool = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: bool = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> AlertChunk:
     if resume_token is None:
         resume_token = secrets.token_urlsafe(32)
@@ -389,9 +271,9 @@ def get_alerts_in_cone(
         None,
         description="Identifier of a previous query to continue. This token expires after 24 hours.",
     ),
-    archive: ArchiveDB = Depends(get_archive),
-    auth: bool = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: bool = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> AlertChunk:
     if resume_token is None:
         resume_token = secrets.token_urlsafe(32)
@@ -422,7 +304,7 @@ def get_alerts_in_cone(
 def get_random_alerts(
     count: int = Query(1, ge=1, le=10_000),
     with_history: bool = Query(False),
-    archive: ArchiveDB = Depends(get_archive),
+    engine: sqlalchemy.Engine = Depends(get_engine),
 ):
     """
     Get a sample of random alerts to test random-access throughput
@@ -449,9 +331,9 @@ def get_objects_in_cone(
     radius: float = Query(..., description="radius of search field in degrees"),
     jd_start: float = Query(..., description="Earliest observation jd"),
     jd_end: float = Query(..., description="Latest observation jd"),
-    archive: ArchiveDB = Depends(get_archive),
-    auth: bool = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: bool = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> list[str]:
     return list(
         archive.get_objects_in_cone(
@@ -502,9 +384,9 @@ def get_alerts_in_healpix_pixel(
         None,
         description="Identifier of a previous query to continue. This token expires after 24 hours.",
     ),
-    archive: ArchiveDB = Depends(get_archive),
-    auth: bool = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: bool = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> AlertChunk:
     if resume_token is None:
         resume_token = secrets.token_urlsafe(32)
@@ -537,9 +419,9 @@ def get_alerts_in_healpix_pixel(
 )
 def get_alerts_in_healpix_map(
     query: Union[HEALpixMapQuery, HEALpixRegionQuery],
-    archive: ArchiveDB = Depends(get_archive),
-    auth: bool = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: bool = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> AlertChunk:
     resume_token = query.resume_token or secrets.token_urlsafe(32)
     if query.resume_token:
@@ -581,9 +463,9 @@ def get_alerts_in_healpix_map(
 )
 def count_alerts_in_healpix_map(
     query: HEALpixRegionCountQuery,
-    archive: ArchiveDB = Depends(get_archive),
-    auth: bool = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    engine: sqlalchemy.Engine = Depends(get_engine),
+    # auth: bool = Depends(verify_access_token),
+    # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> AlertCount:
     return AlertCount(
         count=archive.count_alerts_in_healpix(
@@ -594,8 +476,9 @@ def count_alerts_in_healpix_map(
             candidate_filter=query.candidate,
         )
     )
+'''
 
-
+'''
 @app.post("/topics/", tags=["topic"], status_code=201)
 def create_topic(
     topic: Topic,
@@ -886,7 +769,7 @@ def stream_release_chunk(
     Mark the given chunk as unconsumed.
     """
     archive.release_chunk_from_queue(resume_token, chunk_id)
-
+'''
 
 # If we are mounted under a (non-stripped) prefix path, create a potemkin root
 # router and mount the actual root as a sub-application. This has no effect

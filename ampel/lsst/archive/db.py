@@ -4,15 +4,17 @@ import json
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import fastavro
 from astropy import units as u
 from astropy_healpix import lonlat_to_healpix
 from sqlalchemy.dialects.postgresql import insert
-from sqlmodel import Session, select
+from sqlmodel import Session, select, join
 
-from .avro import pack_records
+from .avro import pack_records, extract_record
 from .models import Alert, AvroBlob, AvroSchema
+from .server.s3 import get_range
 
 if TYPE_CHECKING:
     from mypy_boto3_s3.service_resource import Bucket, Object
@@ -131,3 +133,29 @@ def insert_alert_chunk(
             )
             .on_conflict_do_nothing(index_elements=[Alert.id])
         )
+
+def get_alert_from_s3(
+    id: int,
+    engine: "Engine",
+    bucket: "Bucket",
+) -> dict | None:
+    with Session(engine) as session:
+        blob = session.exec(
+            select(
+                AvroBlob.uri,
+                Alert.avro_blob_start,
+                Alert.avro_blob_end,
+            )
+            .select_from(
+                join(Alert, AvroBlob, Alert.avro_blob_id == AvroBlob.id)
+            )
+            .where(Alert.id == id)
+        ).first()
+        if blob is None:
+            return None
+        uri, start, end = blob
+        try:
+            return extract_record(*get_range(bucket, uri, start, end))
+        except KeyError as exc:
+            print(f"Failed to extract record from S3: {exc}")
+            return None

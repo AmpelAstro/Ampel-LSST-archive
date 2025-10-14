@@ -56,12 +56,9 @@ def get_range(
     except bucket.meta.client.exceptions.NoSuchKey as err:
         raise KeyError(f"bucket {bucket.name} has no key {key}") from err
     if response["ResponseMetadata"]["HTTPStatusCode"] <= 400:  # noqa: PLR2004
-        schema_key = (
-            obj.metadata["schema-name"],
-            obj.metadata["schema-version"],
-        )
+        schema_key = int(obj.metadata["schema-id"])
         if schema_key not in ALERT_SCHEMAS:
-            schema = get_parsed_schema(read_schema(get_stream(bucket, key)))
+            schema = get_parsed_schema(schema_key, read_schema(get_stream(bucket, key)))
         else:
             schema = ALERT_SCHEMAS[schema_key]
         return response["Body"], schema  # type: ignore[return-value]
