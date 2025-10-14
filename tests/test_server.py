@@ -14,6 +14,7 @@ import jwt
 import pytest
 import pytest_asyncio
 import sqlalchemy
+from ampel.lsst.archive.ArchiveDB import ArchiveDB
 from fastapi import status
 from starlette.status import (
     HTTP_200_OK,
@@ -21,9 +22,7 @@ from starlette.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from ampel.lsst.archive.ArchiveDB import ArchiveDB
 from ampel.lsst.archive.server.cutouts import ALERT_SCHEMAS, extract_alert, pack_records
-from ampel.lsst.archive.server.db import get_engine
 from ampel.lsst.archive.server.s3 import get_range, get_s3_bucket
 from ampel.lsst.archive.server.tokens import AuthToken
 
@@ -260,15 +259,15 @@ async def test_programid_auth(
         assert response.status_code == status.HTTP_200_OK
         assert mock_db.get_alerts_for_object.call_args.kwargs[
             "programid"
-        ] == params.get(
-            "programid"
-        ), "programid is passed through for partnership token"
+        ] == params.get("programid"), (
+            "programid is passed through for partnership token"
+        )
     else:
         assert response.status_code == status_code
         if response.status_code == status.HTTP_200_OK:
-            assert (
-                mock_db.get_alerts_for_object.call_args.kwargs["programid"] == 1
-            ), "non-partnership tokens always query programid 1"
+            assert mock_db.get_alerts_for_object.call_args.kwargs["programid"] == 1, (
+                "non-partnership tokens always query programid 1"
+            )
 
 
 @pytest.mark.asyncio
@@ -636,7 +635,7 @@ async def test_forbidden_identity(
 def packed_alert_chunk(
     alert_generator,
 ) -> tuple[dict, bytes, list[dict], list[tuple[int, int]]]:
-    records, schemas = zip(*alert_generator(with_schema=True))
+    records, schemas = zip(*alert_generator(with_schema=True), strict=False)
 
     blob, ranges = pack_records(records, schema=schemas[0])
 
@@ -651,7 +650,7 @@ def test_extract_block(
     """
     schema, blob, records, ranges = packed_alert_chunk
 
-    for record, span in zip(records, ranges):
+    for record, span in zip(records, ranges, strict=False):
         reco = extract_alert(record["candid"], io.BytesIO(blob[slice(*span)]), schema)
         assert reco == record
 
@@ -675,7 +674,7 @@ def test_extract_block_from_s3(
         "schema-version": schema["version"],
     }
 
-    for record, span in zip(records, ranges):
+    for record, span in zip(records, ranges, strict=False):
         start, end = span
         reco = extract_alert(record["candid"], *get_range(bucket, obj.key, start, end))
         assert reco == record
@@ -685,7 +684,7 @@ def test_extract_block_from_s3(
 async def post_alert_chunk(
     authed_integration_client: httpx.AsyncClient, alert_generator
 ):
-    records, schemas = zip(*alert_generator(with_schema=True))
+    records, schemas = zip(*alert_generator(with_schema=True), strict=False)
 
     payload, _ = pack_records(records, schema=schemas[0])
 
@@ -739,7 +738,7 @@ async def test_get_cutouts_from_chunk(
 async def test_repost_alert_chunk(
     authed_integration_client: httpx.AsyncClient, alert_generator
 ):
-    records, schemas = zip(*alert_generator(with_schema=True))
+    records, schemas = zip(*alert_generator(with_schema=True), strict=False)
 
     payload, _ = pack_records(records, schema=schemas[0])
 

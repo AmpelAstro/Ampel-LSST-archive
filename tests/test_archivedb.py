@@ -3,11 +3,12 @@ import json
 
 import fastavro
 import pytest
+from sqlmodel import Session, create_engine, text
 
 from ampel.lsst.archive.avro import extract_record, pack_records
-from ampel.lsst.archive.db import insert_alert_chunk, ensure_schema
+from ampel.lsst.archive.db import ensure_schema, insert_alert_chunk
 from ampel.lsst.archive.server.s3 import get_s3_bucket, get_url_for_key
-from sqlmodel import create_engine, SQLModel, Session, text
+
 
 def test_walk_tarball(alert_generator):
     alerts = list(alert_generator())
@@ -16,10 +17,7 @@ def test_walk_tarball(alert_generator):
 
 
 def test_pack_alerts(alert_generator):
-
-    alerts, schemas = zip(
-        *alert_generator(with_schema=True)
-    )
+    alerts, schemas = zip(*alert_generator(with_schema=True), strict=False)
 
     schema = fastavro.parse_schema(json.loads(schemas[0]))
 
@@ -29,23 +27,21 @@ def test_pack_alerts(alert_generator):
     all_alerts = list(reader)
 
     assert len(all_alerts) == len(alerts)
-    for orig, alert in zip(alerts, all_alerts):
+    for orig, alert in zip(alerts, all_alerts, strict=False):
         assert orig.keys() == alert.keys()
-        for k,v in alert.items():
+        for k, v in alert.items():
             # NB: approximate comparison with tolerance 0 to allow NaNs to compare equal
             assert orig[k] == pytest.approx(v, abs=0, nan_ok=True)
 
-    for alert, (start, end) in zip(all_alerts, ranges):
+    for alert, (start, end) in zip(all_alerts, ranges, strict=False):
         orig = extract_record(io.BytesIO(packed[start:end]), schema=schema)
         assert orig.keys() == alert.keys()
-        for k,v in alert.items():
+        for k, v in alert.items():
             assert orig[k] == pytest.approx(v, abs=0, nan_ok=True)
 
-def test_insert_alert_chunk(empty_archive, alert_generator, mock_s3_bucket):
 
-    alerts, schemas = zip(
-        *alert_generator(with_schema=True)
-    )
+def test_insert_alert_chunk(empty_archive, alert_generator, mock_s3_bucket):
+    alerts, schemas = zip(*alert_generator(with_schema=True), strict=False)
 
     engine = create_engine(empty_archive)
     bucket = get_s3_bucket()
@@ -53,14 +49,13 @@ def test_insert_alert_chunk(empty_archive, alert_generator, mock_s3_bucket):
     key = f"lsst-alerts-v9.0/{partition:03d}/{start_offset:020d}-{end_offset:020d}"
     ensure_schema(engine, 900, schemas[0])
     insert_alert_chunk(engine, bucket, 900, get_url_for_key(bucket, key), alerts)
-    
+
     with Session(engine) as session:
-        result, = session.exec(text("SELECT COUNT(*) FROM alert")).one()
+        (result,) = session.exec(text("SELECT COUNT(*) FROM alert")).one()
         assert result == 10
 
-        result, = session.exec(text("SELECT COUNT(*) FROM avroschema")).one()
+        (result,) = session.exec(text("SELECT COUNT(*) FROM avroschema")).one()
         assert result == 1
 
-        result, = session.exec(text("SELECT COUNT(*) FROM avroblob")).one()
+        (result,) = session.exec(text("SELECT COUNT(*) FROM avroblob")).one()
         assert result == 1
-

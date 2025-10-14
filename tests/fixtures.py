@@ -16,9 +16,10 @@ import psycopg2
 import psycopg2.extras
 import pytest
 from moto import mock_aws
+from sqlmodel import SQLModel, create_engine
 
 from ampel.lsst.archive.server.s3 import get_s3_bucket
-from sqlmodel import SQLModel, create_engine
+from ampel.lsst.archive.server.settings import settings
 
 psycopg2.extensions.set_wait_callback(psycopg2.extras.wait_select)
 
@@ -61,7 +62,7 @@ def archive(integration):
                     "ARCHIVE_WRITE_USER=ampel-client",
                     "-P",
                     "-v",
-                    f"{Path(__file__).parent/'test-data'/'initdb'/'archive'}:/docker-entrypoint-initdb.d",
+                    f"{Path(__file__).parent / 'test-data' / 'initdb' / 'archive'}:/docker-entrypoint-initdb.d",
                     POSTGRES_IMAGE,
                 ],
             )
@@ -174,7 +175,7 @@ def empty_archive(archive):
     engine = create_engine(archive)
     SQLModel.metadata.create_all(engine)
     # delete in order of foreign key dependencies
-    order = ['alert', 'avroblob', 'avroschema']
+    order = ["alert", "avroblob", "avroschema"]
     try:
         with engine.connect() as connection:
             for table in order:
@@ -190,14 +191,7 @@ def empty_archive(archive):
 
 @pytest.fixture
 def alert_archive(empty_archive, alert_generator):
-    from ampel.lsst.t0.ArchiveUpdater import ArchiveUpdater
-
-    updater = ArchiveUpdater(empty_archive)
-    from itertools import islice
-
-    for alert, schema in islice(alert_generator(with_schema=True), 10):
-        assert schema["version"] == "3.0", "Need alerts with current schema"
-        updater.insert_alert(alert, schema, 0, 0)
+    # FIXME: use ampel.lsst.archive.updater.insert_alert_chunk
     return empty_archive
 
 
@@ -218,6 +212,7 @@ def walk_tarball(fname, extension=".avro"):
                 if info.name.endswith(extension):
                     yield schema, fo
 
+
 @pytest.fixture(scope="session")
 def alert_payload_generator(alert_tarball):
     def alerts():
@@ -226,11 +221,16 @@ def alert_payload_generator(alert_tarball):
 
     return alerts
 
+
 @pytest.fixture(scope="session")
 def alert_generator(alert_tarball):
     def alerts(with_schema=False):
-        for schema, fileobj in itertools.islice(walk_tarball(alert_tarball), 0, 1000, 1):
-            alert = fastavro.schemaless_reader(fileobj, writer_schema=json.loads(schema))
+        for schema, fileobj in itertools.islice(
+            walk_tarball(alert_tarball), 0, 1000, 1
+        ):
+            alert = fastavro.schemaless_reader(
+                fileobj, writer_schema=json.loads(schema)
+            )
             if with_schema:
                 yield alert, schema
             else:
@@ -257,8 +257,6 @@ def mock_s3_bucket(_aws_credentials):
 
 @pytest.fixture
 def localstack_s3_bucket(_aws_credentials, localstack_s3, monkeypatch):
-    from ampel.lsst.archive.server.settings import settings
-
     monkeypatch.setattr(settings, "s3_endpoint_url", localstack_s3)
     get_s3_bucket.cache_clear()
     bucket = get_s3_bucket()
