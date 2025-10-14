@@ -1,5 +1,4 @@
 import secrets
-from typing import Optional
 
 from pydantic import Field, HttpUrl, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,7 +19,7 @@ class Settings(BaseSettings):
         validation_alias="STREAM_QUERY_TIMEOUT",
         description="Timeout for asynchronous queries, in seconds",
     )
-    s3_endpoint_url: Optional[HttpUrl] = Field(None, validation_alias="S3_ENDPOINT_URL")
+    s3_endpoint_url: HttpUrl | None = Field(None, validation_alias="S3_ENDPOINT_URL")
     s3_bucket: str = Field("ampel-lsst-cutout-archive", validation_alias="S3_BUCKET")
     jwt_secret_key: str = Field(
         secrets.token_urlsafe(64), validation_alias="JWT_SECRET_KEY"

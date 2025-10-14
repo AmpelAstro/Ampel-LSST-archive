@@ -1,7 +1,7 @@
 import math
 from base64 import b64encode
 from datetime import datetime
-from typing import Annotated, Any, Literal, Optional, TypeAlias, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -34,7 +34,7 @@ class StreamDescription(Stream):
     remaining: ChunkCount
     pending: ChunkCount
     started_at: datetime
-    finished_at: Optional[datetime] = None
+    finished_at: datetime | None = None
 
 
 class Topic(BaseModel):
@@ -55,9 +55,9 @@ class TopicQuery(StrictModel):
     chunk_size: int = Field(
         100, ge=100, le=10000, description="Number of alerts per chunk"
     )
-    start: Optional[int] = Field(None, ge=0)
-    stop: Optional[int] = Field(None, ge=1)
-    step: Optional[int] = Field(None, gt=0)
+    start: int | None = Field(None, ge=0)
+    stop: int | None = Field(None, ge=1)
+    step: int | None = Field(None, gt=0)
 
 
 class ConeConstraint(StrictModel):
@@ -73,8 +73,8 @@ class ConeConstraint(StrictModel):
 
 
 class TimeConstraint(StrictModel):
-    lt: Optional[float] = Field(None, alias="$lt")
-    gt: Optional[float] = Field(None, alias="$gt")
+    lt: float | None = Field(None, alias="$lt")
+    gt: float | None = Field(None, alias="$gt")
 
 
 class StrictTimeConstraint(TimeConstraint):
@@ -83,13 +83,13 @@ class StrictTimeConstraint(TimeConstraint):
 
 
 class CandidateFilterable(StrictModel):
-    candidate: Optional[FilterClause] = None
+    candidate: FilterClause | None = None
 
 
 class AlertQuery(CandidateFilterable):
-    cone: Optional[ConeConstraint] = None
+    cone: ConeConstraint | None = None
     jd: TimeConstraint = TimeConstraint()  # type: ignore[call-arg]
-    candidate: Optional[FilterClause] = None
+    candidate: FilterClause | None = None
     chunk_size: int = Field(
         100, ge=0, le=10000, description="Number of alerts per chunk"
     )
@@ -103,9 +103,9 @@ class AlertQuery(CandidateFilterable):
 
 
 class ObjectQuery(CandidateFilterable):
-    objectId: Union[str, list[str]]
+    objectId: str | list[str]
     jd: TimeConstraint = TimeConstraint()  # type: ignore[call-arg]
-    candidate: Optional[FilterClause] = None
+    candidate: FilterClause | None = None
     chunk_size: int = Field(
         100, ge=0, le=10000, description="Number of alerts per chunk"
     )
@@ -122,7 +122,7 @@ class AlertChunkQueryBase(StrictModel):
     chunk_size: int = Field(
         100, gt=0, le=10000, description="Number of alerts to return per page"
     )
-    resume_token: Optional[str] = Field(
+    resume_token: str | None = Field(
         None,
         description="Identifier of a previous query to continue. This token expires after 24 hours.",
     )
@@ -170,106 +170,106 @@ class Candidate(BaseModel):
     jd: float
     fid: int
     pid: int
-    diffmaglim: Optional[float] = None
-    pdiffimfilename: Optional[str] = None
-    programpi: Optional[str] = None
+    diffmaglim: float | None = None
+    pdiffimfilename: str | None = None
+    programpi: str | None = None
     programid: Literal[1, 2, 3]
     candid: int
     isdiffpos: str
     tblid: int
-    nid: Optional[int] = None
-    rcid: Optional[int] = None
-    field: Optional[int] = None
-    xpos: Optional[float] = None
-    ypos: Optional[float] = None
+    nid: int | None = None
+    rcid: int | None = None
+    field: int | None = None
+    xpos: float | None = None
+    ypos: float | None = None
     ra: float
     dec: float
     magpsf: float
     sigmapsf: float
-    chipsf: Optional[float] = None
-    magap: Optional[float] = None
-    sigmagap: Optional[float] = None
-    distnr: Optional[float] = None
-    magnr: Optional[float] = None
-    sigmagnr: Optional[float] = None
-    chinr: Optional[float] = None
-    sharpnr: Optional[float] = None
-    sky: Optional[float] = None
-    magdiff: Optional[float] = None
-    fwhm: Optional[float] = None
-    classtar: Optional[float] = None
-    mindtoedge: Optional[float] = None
-    magfromlim: Optional[float] = None
-    seeratio: Optional[float] = None
-    aimage: Optional[float] = None
-    bimage: Optional[float] = None
-    aimagerat: Optional[float] = None
-    bimagerat: Optional[float] = None
-    elong: Optional[float] = None
-    nneg: Optional[int] = None
-    nbad: Optional[int] = None
-    rb: Optional[float] = None
-    ssdistnr: Optional[float] = None
-    ssmagnr: Optional[float] = None
-    ssnamenr: Optional[str] = None
-    sumrat: Optional[float] = None
-    magapbig: Optional[float] = None
-    sigmagapbig: Optional[float] = None
+    chipsf: float | None = None
+    magap: float | None = None
+    sigmagap: float | None = None
+    distnr: float | None = None
+    magnr: float | None = None
+    sigmagnr: float | None = None
+    chinr: float | None = None
+    sharpnr: float | None = None
+    sky: float | None = None
+    magdiff: float | None = None
+    fwhm: float | None = None
+    classtar: float | None = None
+    mindtoedge: float | None = None
+    magfromlim: float | None = None
+    seeratio: float | None = None
+    aimage: float | None = None
+    bimage: float | None = None
+    aimagerat: float | None = None
+    bimagerat: float | None = None
+    elong: float | None = None
+    nneg: int | None = None
+    nbad: int | None = None
+    rb: float | None = None
+    ssdistnr: float | None = None
+    ssmagnr: float | None = None
+    ssnamenr: str | None = None
+    sumrat: float | None = None
+    magapbig: float | None = None
+    sigmagapbig: float | None = None
     ranr: float
     decnr: float
-    sgmag1: Optional[float] = None
-    srmag1: Optional[float] = None
-    simag1: Optional[float] = None
-    szmag1: Optional[float] = None
-    sgscore1: Optional[float] = None
-    distpsnr1: Optional[float] = None
+    sgmag1: float | None = None
+    srmag1: float | None = None
+    simag1: float | None = None
+    szmag1: float | None = None
+    sgscore1: float | None = None
+    distpsnr1: float | None = None
     ndethist: int
     ncovhist: int
-    jdstarthist: Optional[float] = None
-    jdendhist: Optional[float] = None
-    scorr: Optional[float] = None
-    tooflag: Optional[int] = None
-    objectidps1: Optional[int] = None
-    objectidps2: Optional[int] = None
-    sgmag2: Optional[float] = None
-    srmag2: Optional[float] = None
-    simag2: Optional[float] = None
-    szmag2: Optional[float] = None
-    sgscore2: Optional[float] = None
-    distpsnr2: Optional[float] = None
-    objectidps3: Optional[int] = None
-    sgmag3: Optional[float] = None
-    srmag3: Optional[float] = None
-    simag3: Optional[float] = None
-    szmag3: Optional[float] = None
-    sgscore3: Optional[float] = None
-    distpsnr3: Optional[float] = None
+    jdstarthist: float | None = None
+    jdendhist: float | None = None
+    scorr: float | None = None
+    tooflag: int | None = None
+    objectidps1: int | None = None
+    objectidps2: int | None = None
+    sgmag2: float | None = None
+    srmag2: float | None = None
+    simag2: float | None = None
+    szmag2: float | None = None
+    sgscore2: float | None = None
+    distpsnr2: float | None = None
+    objectidps3: int | None = None
+    sgmag3: float | None = None
+    srmag3: float | None = None
+    simag3: float | None = None
+    szmag3: float | None = None
+    sgscore3: float | None = None
+    distpsnr3: float | None = None
     nmtchps: int
     rfid: int
     jdstartref: float
     jdendref: float
     nframesref: int
-    rbversion: Optional[str] = None
-    dsnrms: Optional[float] = None
-    ssnrms: Optional[float] = None
-    dsdiff: Optional[float] = None
-    magzpsci: Optional[float] = None
-    magzpsciunc: Optional[float] = None
-    magzpscirms: Optional[float] = None
-    nmatches: Optional[int] = None
-    clrcoeff: Optional[float] = None
-    clrcounc: Optional[float] = None
-    zpclrcov: Optional[float] = None
-    zpmed: Optional[float] = None
-    clrmed: Optional[float] = None
-    clrrms: Optional[float] = None
-    neargaia: Optional[float] = None
-    neargaiabright: Optional[float] = None
-    maggaia: Optional[float] = None
-    maggaiabright: Optional[float] = None
-    exptime: Optional[float] = None
-    drb: Optional[float] = None
-    drbversion: Optional[str] = None
+    rbversion: str | None = None
+    dsnrms: float | None = None
+    ssnrms: float | None = None
+    dsdiff: float | None = None
+    magzpsci: float | None = None
+    magzpsciunc: float | None = None
+    magzpscirms: float | None = None
+    nmatches: int | None = None
+    clrcoeff: float | None = None
+    clrcounc: float | None = None
+    zpclrcov: float | None = None
+    zpmed: float | None = None
+    clrmed: float | None = None
+    clrrms: float | None = None
+    neargaia: float | None = None
+    neargaiabright: float | None = None
+    maggaia: float | None = None
+    maggaiabright: float | None = None
+    exptime: float | None = None
+    drb: float | None = None
+    drbversion: str | None = None
 
 
 class PrvCandidate(BaseModel):
@@ -280,99 +280,99 @@ class PrvCandidate(BaseModel):
     jd: float
     fid: int
     pid: int
-    diffmaglim: Optional[float] = None
-    pdiffimfilename: Optional[str] = None
-    programpi: Optional[str] = None
+    diffmaglim: float | None = None
+    pdiffimfilename: str | None = None
+    programpi: str | None = None
     programid: int
-    candid: Optional[int] = None
-    isdiffpos: Optional[str] = None
-    tblid: Optional[int] = None
-    nid: Optional[int] = None
-    rcid: Optional[int] = None
-    field: Optional[int] = None
-    xpos: Optional[float] = None
-    ypos: Optional[float] = None
-    ra: Optional[float] = None
-    dec: Optional[float] = None
-    magpsf: Optional[float] = None
-    sigmapsf: Optional[float] = None
-    chipsf: Optional[float] = None
-    magap: Optional[float] = None
-    sigmagap: Optional[float] = None
-    distnr: Optional[float] = None
-    magnr: Optional[float] = None
-    sigmagnr: Optional[float] = None
-    chinr: Optional[float] = None
-    sharpnr: Optional[float] = None
-    sky: Optional[float] = None
-    magdiff: Optional[float] = None
-    fwhm: Optional[float] = None
-    classtar: Optional[float] = None
-    mindtoedge: Optional[float] = None
-    magfromlim: Optional[float] = None
-    seeratio: Optional[float] = None
-    aimage: Optional[float] = None
-    bimage: Optional[float] = None
-    aimagerat: Optional[float] = None
-    bimagerat: Optional[float] = None
-    elong: Optional[float] = None
-    nneg: Optional[int] = None
-    nbad: Optional[int] = None
-    rb: Optional[float] = None
-    ssdistnr: Optional[float] = None
-    ssmagnr: Optional[float] = None
-    ssnamenr: Optional[str] = None
-    sumrat: Optional[float] = None
-    magapbig: Optional[float] = None
-    sigmagapbig: Optional[float] = None
-    ranr: Optional[float] = None
-    decnr: Optional[float] = None
-    scorr: Optional[float] = None
-    magzpsci: Optional[float] = None
-    magzpsciunc: Optional[float] = None
-    magzpscirms: Optional[float] = None
-    clrcoeff: Optional[float] = None
-    clrcounc: Optional[float] = None
-    rbversion: Optional[str] = None
+    candid: int | None = None
+    isdiffpos: str | None = None
+    tblid: int | None = None
+    nid: int | None = None
+    rcid: int | None = None
+    field: int | None = None
+    xpos: float | None = None
+    ypos: float | None = None
+    ra: float | None = None
+    dec: float | None = None
+    magpsf: float | None = None
+    sigmapsf: float | None = None
+    chipsf: float | None = None
+    magap: float | None = None
+    sigmagap: float | None = None
+    distnr: float | None = None
+    magnr: float | None = None
+    sigmagnr: float | None = None
+    chinr: float | None = None
+    sharpnr: float | None = None
+    sky: float | None = None
+    magdiff: float | None = None
+    fwhm: float | None = None
+    classtar: float | None = None
+    mindtoedge: float | None = None
+    magfromlim: float | None = None
+    seeratio: float | None = None
+    aimage: float | None = None
+    bimage: float | None = None
+    aimagerat: float | None = None
+    bimagerat: float | None = None
+    elong: float | None = None
+    nneg: int | None = None
+    nbad: int | None = None
+    rb: float | None = None
+    ssdistnr: float | None = None
+    ssmagnr: float | None = None
+    ssnamenr: str | None = None
+    sumrat: float | None = None
+    magapbig: float | None = None
+    sigmagapbig: float | None = None
+    ranr: float | None = None
+    decnr: float | None = None
+    scorr: float | None = None
+    magzpsci: float | None = None
+    magzpsciunc: float | None = None
+    magzpscirms: float | None = None
+    clrcoeff: float | None = None
+    clrcounc: float | None = None
+    rbversion: str | None = None
 
 
 class FPHist(BaseModel):
-    field: Optional[int] = None
-    rcid: Optional[int] = None
+    field: int | None = None
+    rcid: int | None = None
     fid: int
     pid: int
     rfid: int
-    sciinpseeing: Optional[float] = None
-    scibckgnd: Optional[float] = None
-    scisigpix: Optional[float] = None
-    magzpsci: Optional[float] = None
-    magzpsciunc: Optional[float] = None
-    magzpscirms: Optional[float] = None
-    clrcoeff: Optional[float] = None
-    clrcounc: Optional[float] = None
-    exptime: Optional[float] = None
-    adpctdif1: Optional[float] = None
-    adpctdif2: Optional[float] = None
-    diffmaglim: Optional[float] = None
+    sciinpseeing: float | None = None
+    scibckgnd: float | None = None
+    scisigpix: float | None = None
+    magzpsci: float | None = None
+    magzpsciunc: float | None = None
+    magzpscirms: float | None = None
+    clrcoeff: float | None = None
+    clrcounc: float | None = None
+    exptime: float | None = None
+    adpctdif1: float | None = None
+    adpctdif2: float | None = None
+    diffmaglim: float | None = None
     programid: int
     jd: float
-    forcediffimflux: Optional[float] = None
-    forcediffimfluxunc: Optional[float] = None
-    procstatus: Optional[str] = None
-    distnr: Optional[float] = None
+    forcediffimflux: float | None = None
+    forcediffimfluxunc: float | None = None
+    procstatus: str | None = None
+    distnr: float | None = None
     ranr: float
     decnr: float
-    magnr: Optional[float] = None
-    sigmagnr: Optional[float] = None
-    chinr: Optional[float] = None
-    sharpnr: Optional[float] = None
+    magnr: float | None = None
+    sigmagnr: float | None = None
+    chinr: float | None = None
+    sharpnr: float | None = None
 
 
 # NB: ser_json_bytes="base64" uses a URL-safe alphabet, whereas b64encode
 # uses +/ to represent 62 and 63. Use a serialization function to emit
 # strings that can be properly decoded with b64decode. See:
 # https://github.com/pydantic/pydantic/issues/7000
-StampData: TypeAlias = Annotated[
+StampData = Annotated[
     bytes,
     PlainSerializer(lambda v: b64encode(v), return_type=bytes, when_used="json"),
 ]
@@ -398,30 +398,23 @@ class Alert_33(AlertCutouts):
     avro alert schema for LSST (www.lsst.caltech.edu)
     """
 
-    schemavsn: Union[
-        Literal["1.9"],
-        Literal["2.0"],
-        Literal["3.0"],
-        Literal["3.1"],
-        Literal["3.2"],
-        Literal["3.3"],
-    ]
+    schemavsn: Literal["1.9"] | Literal["2.0"] | Literal["3.0"] | Literal["3.1"] | Literal["3.2"] | Literal["3.3"]
     publisher: str = "Ampel"
     candidate: Candidate
-    prv_candidates: Optional[list[PrvCandidate]] = None
+    prv_candidates: list[PrvCandidate] | None = None
 
 
 class Alert_402(Alert_33):
     schemavsn: Literal["4.02"]  # type: ignore[assignment]
-    fp_hists: Optional[list[FPHist]] = None
+    fp_hists: list[FPHist] | None = None
 
 
-Alert = Union[Alert_33, Alert_402]
+Alert = Alert_33 | Alert_402
 
 
 class AlertChunk(BaseModel):
     resume_token: str
-    chunk: Optional[int] = None
+    chunk: int | None = None
     alerts: list[Alert]
     remaining: ChunkCount
     pending: ChunkCount

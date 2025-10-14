@@ -127,7 +127,7 @@ def insert_alert_chunk(
             .values(
                 [
                     _alert_values(alert, blob_id, start, end)
-                    for alert, (start, end) in zip(alerts, ranges)
+                    for alert, (start, end) in zip(alerts, ranges, strict=False)
                 ]
             )
             .on_conflict_do_nothing(index_elements=[Alert.id])

@@ -2,7 +2,7 @@ import bisect
 import math
 from collections import defaultdict
 from collections.abc import Generator, Iterable
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 T = TypeVar("T", bound=int)
 
@@ -35,14 +35,14 @@ def deres(nside, ipix, min_nside=1):
     return dict(decomposed)
 
 
-class multirange(Generic[T]):
+class multirange[T]:
     """
     An ordered collection of non-overlapping, half-open intervals.
     """
 
     def __init__(self, intervals: Iterable[tuple[T, T]] = []):
         if intervals:
-            self.lefts, self.rights = (list(side) for side in zip(*intervals))
+            self.lefts, self.rights = (list(side) for side in zip(*intervals, strict=False))
         else:
             self.lefts = []
             self.rights = []
@@ -51,7 +51,7 @@ class multirange(Generic[T]):
         return len(self.lefts)
 
     def __iter__(self):
-        return zip(self.lefts, self.rights)
+        return zip(self.lefts, self.rights, strict=False)
 
     def add(self, left: T, right: T):
         assert right > left
