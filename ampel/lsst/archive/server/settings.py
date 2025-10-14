@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     )
     s3_endpoint_url: HttpUrl | None = Field(None, validation_alias="S3_ENDPOINT_URL")
     s3_bucket: str = Field("ampel-lsst-cutout-archive", validation_alias="S3_BUCKET")
+    s3_insecure: bool = Field(False, validation_alias="S3_INSECURE")
     jwt_secret_key: str = Field(
         secrets.token_urlsafe(64), validation_alias="JWT_SECRET_KEY"
     )

@@ -26,6 +26,7 @@ def get_s3_bucket() -> "Bucket":
         endpoint_url=str(settings.s3_endpoint_url)
         if settings.s3_endpoint_url
         else None,
+        verify=not settings.s3_insecure,
     ).Bucket(settings.s3_bucket)
 
 
