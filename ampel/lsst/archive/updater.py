@@ -62,6 +62,7 @@ def main(
     ] = "https://usdf-alert-schemas-dev.slac.stanford.edu",
     topic: Annotated[str, typer.Option(envvar="KAFKA_TOPIC")] = "lsst-alerts-v9.0",
     group: Annotated[str, typer.Option(envvar="KAFKA_GROUP")] = "ampel-idfint-archive",
+    instance: Annotated[None | str, typer.Option(envvar="HOSTNAME")] = None,
     store_offsets: Annotated[bool, typer.Option()] = True,
     chunk_size: Annotated[int, typer.Option()] = 1000,
     timeout: Annotated[float, typer.Option()] = 300.0,
@@ -70,6 +71,7 @@ def main(
         {
             "bootstrap.servers": broker,
             "group.id": group,
+            "group.instance.id": instance,
             "auto.offset.reset": "earliest",
             "security.protocol": "SASL_PLAINTEXT",
             "sasl.mechanism": "SCRAM-SHA-512",
