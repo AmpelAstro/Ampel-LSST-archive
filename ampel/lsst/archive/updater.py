@@ -32,7 +32,7 @@ class AvroWithSchemaDeserializer:
         payload = message.value()
         assert isinstance(payload, bytes)
         record = self.inner_deserializer(payload, ctx)
-        _, schema_id = struct.unpack('>bI', payload[:5])
+        _, schema_id = struct.unpack(">bI", payload[:5])
 
         if schema_id not in self._schema_cache:
             schema = self.schema_registry_client.get_schema(schema_id)
@@ -90,10 +90,14 @@ def main(
         Drop any buffered records for revoked partitions.
         """
         log.info(f"Partitions revoked: {partitions}")
-        dropped = [buffers.pop(k) for tp in partitions if (k := (tp.topic, tp.partition)) in buffers]
+        dropped = [
+            buffers.pop(k)
+            for tp in partitions
+            if (k := (tp.topic, tp.partition)) in buffers
+        ]
         log.info(
             f"Dropped {sum(len(b.records) for b in dropped)} records on {len(dropped)} topics"
-        )  
+        )
 
     def flush(key: tuple[str, int]) -> None:
         """
@@ -166,9 +170,11 @@ def main(
     finally:
         consumer.close()
 
+
 def run():
     logging.basicConfig(level=logging.INFO)
     typer.run(main)
+
 
 if __name__ == "__main__":
     run()

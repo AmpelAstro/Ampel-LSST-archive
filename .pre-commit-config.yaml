@@ -1,0 +1,17 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # renovate: datasource=pypi depName=ruff versioning=pep440
+  rev: v0.13.0
+  hooks:
+    - id: ruff
+      args: [--fix]
+    - id: ruff-format
+- repo: https://github.com/python-poetry/poetry
+  # renovate: datasource=pypi depName=poetry versioning=pep440
+  rev: "1.8.5"
+  hooks: 
+    - id: poetry-check
+fail_fast: false

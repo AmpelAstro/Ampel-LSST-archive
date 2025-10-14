@@ -42,7 +42,9 @@ class multirange[T]:
 
     def __init__(self, intervals: Iterable[tuple[T, T]] = []):
         if intervals:
-            self.lefts, self.rights = (list(side) for side in zip(*intervals, strict=False))
+            self.lefts, self.rights = (
+                list(side) for side in zip(*intervals, strict=False)
+            )
         else:
             self.lefts = []
             self.rights = []

@@ -1,4 +1,3 @@
-
 import io
 from collections.abc import Iterable
 from typing import Any, BinaryIO
@@ -31,7 +30,6 @@ def extract_record(
 def pack_records(
     schema: dict, records: Iterable[dict], codec: str = "zstandard"
 ) -> tuple[bytes, list[tuple[int, int]]]:
-    
     # reserialize into schemafull format with one record per block
     with io.BytesIO() as buf:
         writer(
@@ -56,4 +54,3 @@ def pack_records(
             start = end
 
     return packed, ranges
-

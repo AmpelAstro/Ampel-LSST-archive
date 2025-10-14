@@ -128,6 +128,7 @@ def get_cutouts(
         return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
     raise HTTPException(status_code=404)
 
+
 '''
 @app.get(
     "/object/{objectId}/alerts",

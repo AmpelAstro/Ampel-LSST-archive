@@ -398,7 +398,14 @@ class Alert_33(AlertCutouts):
     avro alert schema for LSST (www.lsst.caltech.edu)
     """
 
-    schemavsn: Literal["1.9"] | Literal["2.0"] | Literal["3.0"] | Literal["3.1"] | Literal["3.2"] | Literal["3.3"]
+    schemavsn: (
+        Literal["1.9"]
+        | Literal["2.0"]
+        | Literal["3.0"]
+        | Literal["3.1"]
+        | Literal["3.2"]
+        | Literal["3.3"]
+    )
     publisher: str = "Ampel"
     candidate: Candidate
     prv_candidates: list[PrvCandidate] | None = None

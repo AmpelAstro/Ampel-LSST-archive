@@ -133,6 +133,7 @@ def insert_alert_chunk(
             .on_conflict_do_nothing(index_elements=[Alert.id])
         )
 
+
 def get_alert_from_s3(
     id: int,
     engine: "Engine",
@@ -145,9 +146,7 @@ def get_alert_from_s3(
                 Alert.avro_blob_start,
                 Alert.avro_blob_end,
             )
-            .select_from(
-                join(Alert, AvroBlob, Alert.avro_blob_id == AvroBlob.id)
-            )
+            .select_from(join(Alert, AvroBlob, Alert.avro_blob_id == AvroBlob.id))
             .where(Alert.id == id)
         ).first()
         if blob is None:
