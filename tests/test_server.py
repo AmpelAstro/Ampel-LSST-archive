@@ -23,7 +23,7 @@ from starlette.status import (
 
 from ampel.lsst.archive.ArchiveDB import ArchiveDB
 from ampel.lsst.archive.server.cutouts import ALERT_SCHEMAS, extract_alert, pack_records
-from ampel.lsst.archive.server.db import get_archive, get_archive_updater
+from ampel.lsst.archive.server.db import get_engine
 from ampel.lsst.archive.server.s3 import get_range, get_s3_bucket
 from ampel.lsst.archive.server.tokens import AuthToken
 

@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 import fastavro
 from astropy import units as u
 from astropy_healpix import lonlat_to_healpix
-from sqlmodel import Session, insert, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlmodel import Session, select
 
 from .avro import pack_records
 from .models import Alert, AvroBlob, AvroSchema
@@ -63,6 +64,28 @@ def _rollback_on_exception(
             raise
 
 
+def _alert_values(alert: dict, blob_id: int, blob_start: int, blob_end: int) -> dict:
+    diaSource = alert["diaSource"]
+    return Alert(
+        id=diaSource["diaSourceId"],
+        object_id=diaSource["diaObjectId"],
+        midpointMjdTai=diaSource["midpointMjdTai"],
+        ra=diaSource["ra"],
+        dec=diaSource["dec"],
+        hpx=int(
+            lonlat_to_healpix(
+                diaSource["ra"] * u.deg,
+                diaSource["dec"] * u.deg,
+                nside=NSIDE,
+                order="nested",
+            )
+        ),
+        avro_blob_id=blob_id,
+        avro_blob_start=blob_start,
+        avro_blob_end=blob_end,
+    ).model_dump()
+
+
 def insert_alert_chunk(
     engine: "Engine",
     bucket: "Bucket",
@@ -98,25 +121,13 @@ def insert_alert_chunk(
             .returning(AvroBlob.id)
         ).first()
 
-        for alert, (start, end) in zip(alerts, ranges):
-            diaSource = alert["diaSource"]
-            session.add(
-                Alert(
-                    id=diaSource["diaSourceId"],
-                    object_id=diaSource["diaObjectId"],
-                    midpointMjdTai=diaSource["midpointMjdTai"],
-                    ra=diaSource["ra"],
-                    dec=diaSource["dec"],
-                    hpx=int(
-                        lonlat_to_healpix(
-                            diaSource["ra"] * u.deg,
-                            diaSource["dec"] * u.deg,
-                            nside=NSIDE,
-                            order="nested",
-                        )
-                    ),
-                    avro_blob_id=blob_id,
-                    avro_blob_start=start,
-                    avro_blob_end=end,
-                )
+        session.exec(
+            insert(Alert)
+            .values(
+                [
+                    _alert_values(alert, blob_id, start, end)
+                    for alert, (start, end) in zip(alerts, ranges)
+                ]
             )
+            .on_conflict_do_nothing(index_elements=[Alert.id])
+        )
