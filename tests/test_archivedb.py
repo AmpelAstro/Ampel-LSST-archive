@@ -1,4 +1,5 @@
 import io
+import json
 
 import fastavro
 import pytest
@@ -20,7 +21,7 @@ def test_pack_alerts(alert_generator):
         *alert_generator(with_schema=True)
     )
 
-    schema = fastavro.parse_schema(schemas[0])
+    schema = fastavro.parse_schema(json.loads(schemas[0]))
 
     packed, ranges = pack_records(schema, alerts)
 
