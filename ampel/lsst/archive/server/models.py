@@ -12,7 +12,7 @@ from pydantic import (
     model_validator,
 )
 
-from ..ArchiveDBClient import ArchiveDBClient
+from ..db import NSIDE
 from ..types import FilterClause
 
 
@@ -133,7 +133,7 @@ class MapQueryBase(CandidateFilterable):
 
 
 class HEALpixMapRegion(StrictModel):
-    nside: int = Field(..., gt=0, le=ArchiveDBClient.NSIDE)
+    nside: int = Field(..., gt=0, le=NSIDE)
     pixels: list[int]
 
     @field_validator("nside")
