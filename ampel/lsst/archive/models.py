@@ -1,5 +1,5 @@
-from sqlmodel import SQLModel, Field
 from sqlalchemy import BigInteger
+from sqlmodel import Field, SQLModel
 
 
 class AvroBlob(SQLModel, table=True):

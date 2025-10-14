@@ -1,13 +1,7 @@
-import io
-import json
-import pathlib
 from typing import Any, BinaryIO
 
 import fastavro
 from fastavro._read_py import BLOCK_READERS, BinaryDecoder
-
-# with open(pathlib.Path(__file__).parent / "cutout_schema.json") as f:
-#     CUTOUT_SCHEMA = json.load(f)
 
 ALERT_SCHEMAS: dict[str, Any] = {}
 
@@ -23,26 +17,6 @@ def read_schema(fo: BinaryIO) -> dict[str, Any]:
     reader = fastavro.reader(fo)
     assert isinstance(reader.writer_schema, dict)
     return reader.writer_schema
-
-
-def repack_alert(alert: dict) -> bytes:
-    """
-    Reduce an IPAC alert packet to cutouts only. This reduces the packet size by a factor ~1.7.
-    NB: cutouts are already gzipped FITS, so further compression is unhelpful.
-    """
-    with io.BytesIO() as fo:
-        fastavro.writer(
-            fo,
-            CUTOUT_SCHEMA,
-            [
-                {
-                    k: v
-                    for k, v in alert.items()
-                    if k.startswith("cutout") or k == "candid"
-                }
-            ],
-        )
-        return fo.getvalue()
 
 
 def extract_alert(
