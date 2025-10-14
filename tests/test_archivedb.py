@@ -51,10 +51,8 @@ def test_insert_alert_chunk(empty_archive, alert_generator, mock_s3_bucket):
     bucket = get_s3_bucket()
     partition, start_offset, end_offset = 0, 4313, 4323
     key = f"lsst-alerts-v9.0/{partition:03d}/{start_offset:020d}-{end_offset:020d}"
-    with Session(engine) as session:
-        ensure_schema(session, 900, schemas[0])
-        insert_alert_chunk(session, bucket, 900, get_url_for_key(bucket, key), alerts)
-        session.commit()
+    ensure_schema(engine, 900, schemas[0])
+    insert_alert_chunk(engine, bucket, 900, get_url_for_key(bucket, key), alerts)
     
     with Session(engine) as session:
         result, = session.exec(text("SELECT COUNT(*) FROM alert")).one()
