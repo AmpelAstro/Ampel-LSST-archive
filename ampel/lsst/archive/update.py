@@ -2,6 +2,7 @@ import logging
 import signal
 import struct
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from threading import Event
 from typing import Annotated
 
@@ -51,6 +52,7 @@ class PartitionBuffer:
     schema_str: str
     start_offset: TopicPartition
     end_offset: TopicPartition
+    last_seen: datetime
 
 
 def main(
@@ -145,8 +147,8 @@ def main(
     for sig in (signal.SIGTERM, signal.SIGINT):
         signal.signal(sig, handler)
 
-    interval = 1
-    max_tries = max(1, int(timeout / interval))
+    interval = 5
+    max_tries = max(1, int(timeout / interval / 2))
 
     while not stop.is_set():
         msg = None
@@ -154,35 +156,36 @@ def main(
             msg = consumer.poll(interval)
             if stop.is_set():
                 break
+        now = datetime.now(UTC)
         if msg is None:
-            log.info("No message received within timeout, exiting")
-            break
-        if err := msg.error():
+            ...
+        elif err := msg.error():
             raise KafkaException(err)
-
-        offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())
-        schema_id, schema, record = unpack(msg)
-
-        key = (msg.topic(), msg.partition())
-        # if buffer full or schema changed, upload chunk and reset
-        if key in buffers and (
-            len(buffers[key].records) >= chunk_size
-            or buffers[key].schema_id != schema_id
-        ):
-            flush(key)
-        if key in buffers:
-            buffers[key].records.append(record)
-            buffers[key].end_offset = offset
         else:
-            buffers[key] = PartitionBuffer([record], schema_id, schema, offset, offset)
+            offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())
+            schema_id, schema, record = unpack(msg)
 
-    # do not flush if interrupted
-    while not stop.is_set():
-        consumer.poll(0)  # respond to any rebalancing events
-        if buffers:
-            flush(next(iter(buffers)))
-        else:
-            break
+            key = (msg.topic(), msg.partition())
+            # if buffer full or schema changed, upload chunk and reset
+            if key in buffers and (
+                len(buffers[key].records) >= chunk_size
+                or buffers[key].schema_id != schema_id
+            ):
+                flush(key)
+            if key in buffers:
+                buffers[key].records.append(record)
+                buffers[key].end_offset = offset
+                buffers[key].last_seen = now
+            else:
+                buffers[key] = PartitionBuffer(
+                    [record], schema_id, schema, offset, offset, now
+                )
+
+        # flush buffers that have been inactive for too long
+        for key in list(buffers):
+            if (now - buffers[key].last_seen).total_seconds() > timeout:
+                log.info(f"Flushing partition {key} due to inactivity")
+                flush(key)
 
     consumer.close()
 
