@@ -105,6 +105,7 @@ def insert_alert_chunk(
     s3_response = obj.put(
         Body=blob,
         ContentMD5=md5,
+        ContentType="application/avro",
         Metadata={"schema-id": str(schema_id)},
     )
     assert 200 <= s3_response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
