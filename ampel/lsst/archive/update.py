@@ -72,6 +72,7 @@ def main(
             "bootstrap.servers": broker,
             "group.id": group,
             "group.instance.id": instance,
+            "partition.assignment.strategy": "cooperative-sticky",
             "auto.offset.reset": "earliest",
             "security.protocol": "SASL_PLAINTEXT",
             "sasl.mechanism": "SCRAM-SHA-512",
