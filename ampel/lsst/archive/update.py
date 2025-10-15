@@ -1,6 +1,8 @@
 import logging
+import signal
 import struct
 from dataclasses import dataclass
+from threading import Event
 from typing import Annotated
 
 import typer
@@ -131,47 +133,58 @@ def main(
 
     consumer.subscribe([topic], on_revoke=on_revoke)
 
-    try:
-        while True:
-            msg = consumer.poll(timeout)
-            if msg is None:
-                log.info("No message received within timeout, exiting")
-                break
-            if err := msg.error():
-                raise KafkaException(err)
+    stop = Event()
 
-            offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())
-            schema_id, schema, record = unpack(msg)
-
-            key = (msg.topic(), msg.partition())
-            # if buffer full or schema changed, upload chunk and reset
-            if key in buffers and (
-                len(buffers[key].records) >= chunk_size
-                or buffers[key].schema_id != schema_id
-            ):
-                flush(key)
-            if key in buffers:
-                buffers[key].records.append(record)
-                buffers[key].end_offset = offset
-            else:
-                buffers[key] = PartitionBuffer(
-                    [record], schema_id, schema, offset, offset
-                )
-
-        while True:
-            consumer.poll(0)  # respond to any rebalancing events
-            if buffers:
-                flush(next(iter(buffers)))
-            else:
-                break
-
-    except KeyboardInterrupt:
-        log.info("Interrupted by user, exiting")
+    def handler(signum, frame):
+        log.info(f"Received signal {signum}, exiting")
         log.info(
             f"{sum(len(b.records) for b in buffers.values())} records on {len(buffers)} topics left unflushed"
         )
-    finally:
-        consumer.close()
+        stop.set()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, handler)
+
+    interval = 1
+    max_tries = max(1, int(timeout / interval))
+
+    while not stop.is_set():
+        msg = None
+        for _ in range(max_tries):
+            msg = consumer.poll(interval)
+            if stop.is_set():
+                break
+        if msg is None:
+            log.info("No message received within timeout, exiting")
+            break
+        if err := msg.error():
+            raise KafkaException(err)
+
+        offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())
+        schema_id, schema, record = unpack(msg)
+
+        key = (msg.topic(), msg.partition())
+        # if buffer full or schema changed, upload chunk and reset
+        if key in buffers and (
+            len(buffers[key].records) >= chunk_size
+            or buffers[key].schema_id != schema_id
+        ):
+            flush(key)
+        if key in buffers:
+            buffers[key].records.append(record)
+            buffers[key].end_offset = offset
+        else:
+            buffers[key] = PartitionBuffer([record], schema_id, schema, offset, offset)
+
+    # do not flush if interrupted
+    while not stop.is_set():
+        consumer.poll(0)  # respond to any rebalancing events
+        if buffers:
+            flush(next(iter(buffers)))
+        else:
+            break
+
+    consumer.close()
 
 
 def run():
