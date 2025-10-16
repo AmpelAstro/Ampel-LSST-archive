@@ -31,7 +31,7 @@ FROM base AS final
 
 # create cache dirs for astropy and friends
 RUN mkdir -p --mode a=rwx /var/cache/astropy
-ENV XDG_CACHE_HOME=/var/cache XDG_CONFIG_HOME=/var/cache
+ENV XDG_CACHE_HOME=/var/cache XDG_CONFIG_HOME=/var/cache MPLBACKEND=Agg
 
 RUN apt-get update && apt-get install -y libpq5 && rm -rf /var/lib/apt/lists/*
 
