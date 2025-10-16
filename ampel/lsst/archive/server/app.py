@@ -138,27 +138,20 @@ try:
         response_model=AlertCutouts,
     )
     def get_cutouts_png(
-        cutouts: AlertCutouts = Depends(get_cutouts),
+        diaSourceId: int,
+        engine: sqlalchemy.Engine = Depends(get_engine),
+        bucket=Depends(get_s3_bucket),
     ):
         """
         Get cutouts as PNG images
         """
-        cutouts.cutoutTemplate = (
-            fits_to_png(cutouts.cutoutTemplate)
-            if cutouts.cutoutTemplate is not None
-            else None
-        )
-        cutouts.cutoutScience = (
-            fits_to_png(cutouts.cutoutScience)
-            if cutouts.cutoutScience is not None
-            else None
-        )
-        cutouts.cutoutDifference = (
-            fits_to_png(cutouts.cutoutDifference)
-            if cutouts.cutoutDifference is not None
-            else None
-        )
-        return cutouts
+        if alert := get_alert_from_s3(diaSourceId, engine, bucket):
+            for k in "cutoutTemplate", "cutoutScience", "cutoutDifference":
+                if alert[k] is not None:
+                    alert[k] = fits_to_png(alert[k])
+            return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
+        raise HTTPException(status_code=404)
+
 except ImportError:
     ...
 
