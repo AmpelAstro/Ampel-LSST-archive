@@ -3,6 +3,7 @@ import signal
 import struct
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import partial
 from threading import Event
 from typing import Annotated
 
@@ -118,17 +119,19 @@ def main(
             buffer.schema_id,
             f"{topic}/{buffer.start_offset.partition:03d}/{buffer.start_offset.offset:020d}-{buffer.end_offset.offset:020d}",
             buffer.records,
-        )
-        if store_offsets:
-            consumer.commit(
+            on_complete=partial(
+                consumer.commit,
                 offsets=[
                     TopicPartition(
                         buffer.end_offset.topic,
                         buffer.end_offset.partition,
                         buffer.end_offset.offset + 1,
                     )
-                ]
+                ],
             )
+            if store_offsets
+            else None,
+        )
         log.info(
             f"Flushed {len(buffer.records)} records; offset now {buffer.end_offset}"
         )

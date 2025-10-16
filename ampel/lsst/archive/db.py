@@ -1,9 +1,9 @@
 import base64
 import hashlib
 import json
-from collections.abc import Generator, Iterable
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import fastavro
 from astropy import units as u
@@ -16,7 +16,7 @@ from .models import Alert, AvroBlob, AvroSchema
 from .server.s3 import get_range
 
 if TYPE_CHECKING:
-    from mypy_boto3_s3.service_resource import Bucket, Object
+    from mypy_boto3_s3.service_resource import Bucket
     from sqlalchemy import Engine
 
 NSIDE = 1 << 16
@@ -53,14 +53,20 @@ def get_schema(engine: "Engine", schema_id: int) -> dict:
 
 @contextmanager
 def _rollback_on_exception(
-    engine: "Engine", s3_object: "Object"
+    engine: "Engine",
+    on_exception: None | Callable[[], Any] = None,
+    on_complete: None | Callable[[], Any] = None,
 ) -> Generator[Session, None, None]:
     with Session(engine) as session:
         try:
             yield session
+            session.flush()
+            if on_complete is not None:
+                on_complete()
             session.commit()
         except:
-            s3_object.delete()
+            if on_exception is not None:
+                on_exception()
             session.rollback()
             raise
 
@@ -93,6 +99,7 @@ def insert_alert_chunk(
     schema_id: int,
     key: str,
     alerts: Iterable[dict],
+    on_complete: None | Callable[[], Any] = None,
 ):
     schema = get_schema(engine, schema_id)
 
@@ -113,7 +120,11 @@ def insert_alert_chunk(
     )
     assert 200 <= s3_response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
 
-    with _rollback_on_exception(engine, obj) as session:
+    with _rollback_on_exception(
+        engine,
+        on_exception=obj.delete,
+        on_complete=on_complete,
+    ) as session:
         (blob_id,) = session.exec(
             insert(AvroBlob)
             .values(
