@@ -1,18 +1,34 @@
-from typing import Any, BinaryIO
+import io
 
-import fastavro
-
-ALERT_SCHEMAS: dict[str, Any] = {}
-
-
-def get_parsed_schema(schema_id: int, schema: dict):
-    key = schema_id
-    if key not in ALERT_SCHEMAS:
-        ALERT_SCHEMAS[key] = fastavro.parse_schema(schema)
-    return ALERT_SCHEMAS[key]
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import fits
+from matplotlib.colors import Normalize
+from matplotlib.figure import Figure
 
 
-def read_schema(fo: BinaryIO) -> dict[str, Any]:
-    reader = fastavro.reader(fo)
-    assert isinstance(reader.writer_schema, dict)
-    return reader.writer_schema
+def fits_to_png(cutout_data: bytes) -> bytes:
+    """
+    Render FITS as PNG
+    """
+    img = np.flipud(fits.getdata(cutout_data))
+    mask = np.isfinite(img)
+
+    fig = Figure(figsize=(1, 1))
+    try:
+        ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
+        ax.set_axis_off()
+        ax.imshow(
+            img,
+            # clip pixel values below the median
+            norm=Normalize(*np.percentile(img[mask], [0.5, 99.5])),
+            aspect="auto",
+            origin="lower",
+        )
+
+        with io.BytesIO() as buf:
+            fig.savefig(buf, dpi=img.shape[0])
+            return buf.getvalue()
+    finally:
+        fig.clear()
+        plt.close(fig)

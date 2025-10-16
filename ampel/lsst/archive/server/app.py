@@ -129,6 +129,40 @@ def get_cutouts(
     raise HTTPException(status_code=404)
 
 
+try:
+    from .cutouts import fits_to_png
+
+    @app.get(
+        "/alert/{diaSourceId}/cutouts/png",
+        tags=["cutouts"],
+        response_model=AlertCutouts,
+    )
+    def get_cutouts_png(
+        cutouts: AlertCutouts = Depends(get_cutouts),
+    ):
+        """
+        Get cutouts as PNG images
+        """
+        cutouts.cutoutTemplate = (
+            fits_to_png(cutouts.cutoutTemplate)
+            if cutouts.cutoutTemplate is not None
+            else None
+        )
+        cutouts.cutoutScience = (
+            fits_to_png(cutouts.cutoutScience)
+            if cutouts.cutoutScience is not None
+            else None
+        )
+        cutouts.cutoutDifference = (
+            fits_to_png(cutouts.cutoutDifference)
+            if cutouts.cutoutDifference is not None
+            else None
+        )
+        return cutouts
+except ImportError:
+    ...
+
+
 '''
 @app.get(
     "/object/{objectId}/alerts",
