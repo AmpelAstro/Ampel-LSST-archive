@@ -53,7 +53,7 @@ def get_range(
 ) -> tuple["BinaryIO", dict]:
     obj = bucket.Object(key)
     try:
-        response = obj.get(Range=f"={start}-{end}")
+        response = obj.get(Range=f"bytes={start}-{end}")
     except bucket.meta.client.exceptions.NoSuchKey as err:
         raise KeyError(f"bucket {bucket.name} has no key {key}") from err
     if response["ResponseMetadata"]["HTTPStatusCode"] <= 400:  # noqa: PLR2004
