@@ -374,7 +374,7 @@ class FPHist(BaseModel):
 # https://github.com/pydantic/pydantic/issues/7000
 StampData = Annotated[
     bytes,
-    PlainSerializer(lambda v: b64encode(v), return_type=bytes, when_used="json"),
+    PlainSerializer(lambda v: b64encode(v), return_type=str, when_used="json"),
 ]
 
 
