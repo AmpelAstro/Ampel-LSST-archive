@@ -1,13 +1,13 @@
 import io
 from functools import lru_cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import boto3
+import fastavro
 from botocore.exceptions import ClientError
 from starlette.status import HTTP_404_NOT_FOUND
 
-from .cutouts import ALERT_SCHEMAS, get_parsed_schema, read_schema
 from .settings import settings
 
 if TYPE_CHECKING:
@@ -17,6 +17,22 @@ if TYPE_CHECKING:
 
 
 class NoSuchKey(KeyError): ...
+
+
+ALERT_SCHEMAS: dict[str, Any] = {}
+
+
+def get_parsed_schema(schema_id: int, schema: dict):
+    key = schema_id
+    if key not in ALERT_SCHEMAS:
+        ALERT_SCHEMAS[key] = fastavro.parse_schema(schema)
+    return ALERT_SCHEMAS[key]
+
+
+def read_schema(fo: "BinaryIO") -> dict[str, Any]:
+    reader = fastavro.reader(fo)
+    assert isinstance(reader.writer_schema, dict)
+    return reader.writer_schema
 
 
 @lru_cache(maxsize=1)
