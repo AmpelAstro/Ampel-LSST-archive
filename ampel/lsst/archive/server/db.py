@@ -13,7 +13,12 @@ from .settings import settings
 
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
-    return create_engine(str(settings.archive_uri))
+    return create_engine(
+        str(settings.archive_uri),
+        connect_args={
+            "options": f"-c statement_timeout={settings.default_statement_timeout * 1000}"
+        },
+    )
 
 
 async def handle_operationalerror(request: Request, exc: OperationalError):
