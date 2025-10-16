@@ -11,7 +11,7 @@ def fits_to_png(cutout_data: bytes) -> bytes:
     """
     Render FITS as PNG
     """
-    img = np.flipud(fits.getdata(cutout_data))
+    img = np.flipud(fits.getdata(io.BytesIO(cutout_data)))
     mask = np.isfinite(img)
 
     fig = Figure(figsize=(1, 1))
