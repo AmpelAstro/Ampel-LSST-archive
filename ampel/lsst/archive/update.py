@@ -153,6 +153,8 @@ def main(
     interval = 5
     max_tries = max(1, int(timeout / interval / 2))
 
+    last_info = datetime.now(UTC)
+
     while not stop.is_set():
         msg = None
         for _ in range(max_tries):
@@ -183,6 +185,19 @@ def main(
                 buffers[key] = PartitionBuffer(
                     [record], schema_id, schema, offset, offset, now
                 )
+        if (now - last_info).total_seconds() >= timeout:
+            assignment = consumer.assignment()
+            log.info(f"Current assignment: {len(assignment)} partitions")
+            for tp in assignment:
+                buffer = buffers.get((tp.topic, tp.partition))
+                log.info(f" - {tp}")
+                log.info(f"   Watermark: {consumer.get_watermark_offsets(tp)}")
+                log.info(f"   Buffered: {len(buffer.records) if buffer else 0} records")
+                if buffer:
+                    log.info(f"   Last seen: {buffer.last_seen}")
+                    log.info(f"   Start offset: {buffer.start_offset}")
+                    log.info(f"   End offset: {buffer.end_offset}")
+            last_info = now
 
         # flush buffers that have been inactive for too long
         for key in list(buffers):
