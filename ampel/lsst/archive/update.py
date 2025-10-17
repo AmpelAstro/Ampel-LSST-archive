@@ -159,7 +159,7 @@ def main(
         msg = None
         for _ in range(max_tries):
             msg = consumer.poll(interval)
-            if stop.is_set():
+            if msg or stop.is_set():
                 break
         now = datetime.now(UTC)
         if msg is None:
