@@ -14,7 +14,6 @@ import jwt
 import pytest
 import pytest_asyncio
 import sqlalchemy
-from ampel.lsst.archive.ArchiveDB import ArchiveDB
 from fastapi import status
 from starlette.status import (
     HTTP_200_OK,
@@ -22,9 +21,9 @@ from starlette.status import (
     HTTP_404_NOT_FOUND,
 )
 
-from ampel.lsst.archive.server.cutouts import ALERT_SCHEMAS, extract_alert, pack_records
+from ampel.lsst.archive.models import NSIDE
 from ampel.lsst.archive.server.s3 import get_range, get_s3_bucket
-from ampel.lsst.archive.server.tokens import AuthToken
+# from ampel.lsst.archive.server.tokens import AuthToken
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
@@ -321,7 +320,7 @@ async def test_get_healpix_skymap(mock_client: httpx.AsyncClient, mock_db: Magic
 
 
 @pytest.mark.usefixtures("_mock_auth")
-@pytest.mark.parametrize("nside", [0, ArchiveDB.NSIDE * 2, ArchiveDB.NSIDE - 1])
+@pytest.mark.parametrize("nside", [0, NSIDE * 2, NSIDE - 1])
 @pytest.mark.asyncio
 async def test_get_healpix_validation(
     mock_client: httpx.AsyncClient, mock_db: MagicMock, nside
