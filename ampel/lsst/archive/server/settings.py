@@ -7,7 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     root_path: str = Field("", validation_alias="ROOT_PATH")
     archive_uri: PostgresDsn = Field(
-        "postgresql://localhost:5432/ztfarchive", validation_alias="ARCHIVE_URI"
+        PostgresDsn("postgresql://localhost:5432/ztfarchive"),
+        validation_alias="ARCHIVE_URI",
     )
     default_statement_timeout: int = Field(
         60,
@@ -31,18 +32,7 @@ class Settings(BaseSettings):
         validation_alias="ALLOWED_IDENTITIES",
         description="Usernames, teams, and orgs allowed to create persistent tokens",
     )
-    partnership_identities: set[str] = Field(
-        {"ZwickyTransientFacility"},
-        validation_alias="PARTNERSHIP_IDENTITIES",
-        description="Usernames, teams, and orgs allowed to create persistent tokens with access to LSST partnership alerts",
-    )
-    query_debug: bool = Field(False, validation_alias="QUERY_DEBUG")
     model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()  # type: ignore[call-arg]
-
-if settings.query_debug:
-    from ampel.lsst.archive.ArchiveDB import ArchiveDB
-
-    ArchiveDB.query_debug = True

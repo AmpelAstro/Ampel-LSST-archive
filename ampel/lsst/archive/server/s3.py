@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class NoSuchKey(KeyError): ...
 
 
-ALERT_SCHEMAS: dict[str, Any] = {}
+ALERT_SCHEMAS: dict[int, Any] = {}
 
 
 def get_parsed_schema(schema_id: int, schema: dict):

@@ -32,10 +32,13 @@ class AvroWithSchemaDeserializer:
         self._schema_cache: dict[int, str] = {}
 
     def __call__(self, message: Message) -> tuple[int, str, dict]:
-        ctx = SerializationContext(message.topic(), MessageField.VALUE)
+        topic = message.topic()
+        assert isinstance(topic, str)
+        ctx = SerializationContext(topic, MessageField.VALUE)
         payload = message.value()
         assert isinstance(payload, bytes)
         record = self.inner_deserializer(payload, ctx)
+        assert isinstance(record, dict)
         _, schema_id = struct.unpack(">bI", payload[:5])
 
         if schema_id not in self._schema_cache:
@@ -167,10 +170,10 @@ def main(
         elif err := msg.error():
             raise KafkaException(err)
         else:
-            offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())
+            offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())  # type: ignore[arg-type]
             schema_id, schema, record = unpack(msg)
 
-            key = (msg.topic(), msg.partition())
+            key = (offset.topic, offset.partition)
             # if buffer full or schema changed, upload chunk and reset
             if key in buffers and (
                 len(buffers[key].records) >= chunk_size

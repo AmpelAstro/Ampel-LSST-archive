@@ -12,7 +12,7 @@ from pydantic import (
     model_validator,
 )
 
-from ..db import NSIDE
+from ..models import NSIDE
 from ..types import FilterClause
 
 

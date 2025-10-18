@@ -1,5 +1,9 @@
+import astropy.units as u
+from astropy_healpix import lonlat_to_healpix
 from sqlalchemy import BigInteger
 from sqlmodel import Field, SQLModel
+
+NSIDE = 1 << 16
 
 
 class AvroBlob(SQLModel, table=True):
@@ -40,3 +44,27 @@ class Alert(SQLModel, table=True):
     avro_blob_id: int = Field(foreign_key="avroblob.id")
     avro_blob_start: int
     avro_blob_end: int
+
+    @classmethod
+    def from_alert_packet(
+        cls, alert: dict, blob_id: int, blob_start: int, blob_end: int
+    ) -> "Alert":
+        diaSource = alert["diaSource"]
+        return cls(
+            id=diaSource["diaSourceId"],
+            object_id=diaSource["diaObjectId"],
+            midpointMjdTai=diaSource["midpointMjdTai"],
+            ra=diaSource["ra"],
+            dec=diaSource["dec"],
+            hpx=int(
+                lonlat_to_healpix(
+                    diaSource["ra"] * u.deg,
+                    diaSource["dec"] * u.deg,
+                    nside=NSIDE,
+                    order="nested",
+                )
+            ),
+            avro_blob_id=blob_id,
+            avro_blob_start=blob_start,
+            avro_blob_end=blob_end,
+        )

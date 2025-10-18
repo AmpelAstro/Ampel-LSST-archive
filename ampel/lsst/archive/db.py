@@ -1,13 +1,12 @@
 import base64
 import hashlib
 import json
-from collections.abc import Callable, Generator, Iterable
+from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 import fastavro
-from astropy import units as u
-from astropy_healpix import lonlat_to_healpix
+from fastavro.types import Schema
 from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Session, join, select
 
@@ -19,16 +18,15 @@ if TYPE_CHECKING:
     from mypy_boto3_s3.service_resource import Bucket
     from sqlalchemy import Engine
 
-NSIDE = 1 << 16
 
-AVRO_SCHEMAS: dict[str, dict] = {}
+AVRO_SCHEMAS: dict[int, Schema] = {}
 
 
-def ensure_schema(engine: "Engine", schema_id: int, content: str) -> dict:
+def ensure_schema(engine: "Engine", schema_id: int, content: str) -> Schema:
     if schema_id not in AVRO_SCHEMAS:
         with Session(engine) as session:
             schema = session.exec(
-                select(AvroSchema).filter(AvroSchema.id == schema_id)
+                select(AvroSchema).where(AvroSchema.id == schema_id)
             ).first()
             if schema is None:
                 session.exec(insert(AvroSchema).values(id=schema_id, content=content))
@@ -39,11 +37,11 @@ def ensure_schema(engine: "Engine", schema_id: int, content: str) -> dict:
     return AVRO_SCHEMAS[schema_id]
 
 
-def get_schema(engine: "Engine", schema_id: int) -> dict:
+def get_schema(engine: "Engine", schema_id: int) -> Schema:
     if schema_id not in AVRO_SCHEMAS:
         with Session(engine) as session:
             schema = session.exec(
-                select(AvroSchema).filter(AvroSchema.id == schema_id)
+                select(AvroSchema).where(AvroSchema.id == schema_id)
             ).first()
             if schema is None:
                 raise KeyError(f"No schema with id {schema_id}")
@@ -71,34 +69,12 @@ def _rollback_on_exception(
             raise
 
 
-def _alert_values(alert: dict, blob_id: int, blob_start: int, blob_end: int) -> dict:
-    diaSource = alert["diaSource"]
-    return Alert(
-        id=diaSource["diaSourceId"],
-        object_id=diaSource["diaObjectId"],
-        midpointMjdTai=diaSource["midpointMjdTai"],
-        ra=diaSource["ra"],
-        dec=diaSource["dec"],
-        hpx=int(
-            lonlat_to_healpix(
-                diaSource["ra"] * u.deg,
-                diaSource["dec"] * u.deg,
-                nside=NSIDE,
-                order="nested",
-            )
-        ),
-        avro_blob_id=blob_id,
-        avro_blob_start=blob_start,
-        avro_blob_end=blob_end,
-    ).model_dump()
-
-
 def insert_alert_chunk(
     engine: "Engine",
     bucket: "Bucket",
     schema_id: int,
     key: str,
-    alerts: Iterable[dict],
+    alerts: Sequence[dict],
     on_complete: None | Callable[[], Any] = None,
 ):
     schema = get_schema(engine, schema_id)
@@ -125,27 +101,31 @@ def insert_alert_chunk(
         on_exception=obj.delete,
         on_complete=on_complete,
     ) as session:
-        (blob_id,) = session.exec(
-            insert(AvroBlob)
-            .values(
-                schema_id=schema_id,
-                uri=name,
-                count=len(alerts),
-                size=len(blob),
-                refcount=0,
-            )
-            .returning(AvroBlob.id)
-        ).first()
+        blob_record = AvroBlob(
+            schema_id=schema_id,
+            uri=name,
+            count=len(alerts),
+            size=len(blob),
+            refcount=0,
+        )
+        session.add(blob_record)
+        session.flush()
 
         session.exec(
             insert(Alert)
             .values(
                 [
-                    _alert_values(alert, blob_id, start, end)
-                    for alert, (start, end) in zip(alerts, ranges, strict=False)
+                    Alert.from_alert_packet(
+                        alert, blob_record.id, start, end
+                    ).model_dump()
+                    for alert, (start, end) in zip(alerts, ranges, strict=True)
                 ]
             )
-            .on_conflict_do_nothing(index_elements=[Alert.id])
+            .on_conflict_do_nothing(
+                index_elements=[
+                    Alert.id,  # type: ignore[list-item]
+                ]
+            )
         )
 
 
@@ -161,13 +141,21 @@ def get_alert_from_s3(
                 Alert.avro_blob_start,
                 Alert.avro_blob_end,
             )
-            .select_from(join(Alert, AvroBlob, Alert.avro_blob_id == AvroBlob.id))
+            .select_from(
+                join(
+                    Alert,
+                    AvroBlob,
+                    Alert.avro_blob_id == AvroBlob.id,  # type: ignore[arg-type]
+                )
+            )
             .where(Alert.id == id)
         ).first()
         if blob is None:
             return None
         uri, start, end = blob
         try:
-            return extract_record(*get_range(bucket, uri, start, end))
+            record = extract_record(*get_range(bucket, uri, start, end))
+            assert isinstance(record, dict)
+            return record
         except KeyError:
             return None

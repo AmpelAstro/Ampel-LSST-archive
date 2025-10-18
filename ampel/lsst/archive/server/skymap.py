@@ -2,9 +2,6 @@ import bisect
 import math
 from collections import defaultdict
 from collections.abc import Generator, Iterable
-from typing import TypeVar
-
-T = TypeVar("T", bound=int)
 
 
 def deres(nside, ipix, min_nside=1):
@@ -35,7 +32,7 @@ def deres(nside, ipix, min_nside=1):
     return dict(decomposed)
 
 
-class multirange[T]:
+class multirange[T: int]:
     """
     An ordered collection of non-overlapping, half-open intervals.
     """

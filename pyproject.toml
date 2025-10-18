@@ -58,6 +58,7 @@ pytest-asyncio = "^0.24.0"
 moto = "^5.0.20"
 boto3-stubs = {extras = ["s3"], version = "^1.35.57"}
 types-confluent-kafka = {version = "~1", markers = "python_version < '3.14'"}
+scipy-stubs = "^1.16.2.4"
 
 [tool.poetry.scripts]
 update-lsst-archive = 'ampel.lsst.archive.update:run'
@@ -85,11 +86,15 @@ show_error_codes = true
 packages = [
   "ampel"
 ]
+exclude = [
+    "ampel/lsst/archive/server/tokens.py",
+]
 
 [[tool.mypy.overrides]]
 module = [
   "astropy.*",
   "astropy_healpix.*",
+  "zstd_asgi",
 ]
 ignore_missing_imports = true
 

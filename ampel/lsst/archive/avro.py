@@ -1,15 +1,19 @@
 import io
 from collections.abc import Iterable
-from typing import Any, BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
 
 import fastavro
-from fastavro._read_py import BLOCK_READERS, BinaryDecoder
-from fastavro._write_py import writer
+from fastavro import writer
+from fastavro._read_py import BLOCK_READERS
+from fastavro.io.binary_decoder import BinaryDecoder
+
+if TYPE_CHECKING:
+    from fastavro.types import AvroMessage, Schema
 
 
 def extract_record(
-    block: BinaryIO, schema: dict, codec: str = "zstandard"
-) -> dict[str, Any]:
+    block: BinaryIO, schema: "Schema", codec: str = "zstandard"
+) -> "AvroMessage":
     """
     Extract single record from Avro block
     """
@@ -28,7 +32,7 @@ def extract_record(
 
 
 def pack_records(
-    schema: dict, records: Iterable[dict], codec: str = "zstandard"
+    schema: "Schema", records: Iterable[dict], codec: str = "zstandard"
 ) -> tuple[bytes, list[tuple[int, int]]]:
     # reserialize into schemafull format with one record per block
     with io.BytesIO() as buf:
