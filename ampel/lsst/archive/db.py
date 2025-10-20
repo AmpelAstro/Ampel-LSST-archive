@@ -17,6 +17,7 @@ from .server.s3 import get_range
 if TYPE_CHECKING:
     from mypy_boto3_s3.service_resource import Bucket
     from sqlalchemy import Engine
+    from sqlalchemy.sql.elements import ColumnElement
 
 
 AVRO_SCHEMAS: dict[int, Schema] = {}
@@ -131,13 +132,12 @@ def insert_alert_chunk(
         )
 
 
-def get_alert_from_s3(
-    id: int,
+def get_blobs_with_condition(
     engine: "Engine",
-    bucket: "Bucket",
-) -> dict | None:
+    conditions: "Sequence[ColumnElement[bool] | bool]",
+) -> Generator[tuple[str, int, int], None, None]:
     with Session(engine) as session:
-        blob = session.exec(
+        for blob in session.exec(
             select(
                 AvroBlob.uri,
                 Alert.avro_blob_start,
@@ -150,14 +150,25 @@ def get_alert_from_s3(
                     Alert.avro_blob_id == AvroBlob.id,  # type: ignore[arg-type]
                 )
             )
-            .where(Alert.id == id)
-        ).first()
-        if blob is None:
-            return None
-        uri, start, end = blob
+            .where(*conditions)
+        ):
+            uri, start, end = blob
+            yield (uri, start, end)
+
+
+def get_alert_from_s3(
+    id: int,
+    engine: "Engine",
+    bucket: "Bucket",
+) -> dict | None:
+    for uri, start, end in get_blobs_with_condition(
+        engine,
+        [Alert.id == id],
+    ):
         try:
             record = extract_record(*get_range(bucket, uri, start, end))
-            assert isinstance(record, dict)
-            return record
         except KeyError:
             return None
+        assert isinstance(record, dict)
+        return record
+    return None

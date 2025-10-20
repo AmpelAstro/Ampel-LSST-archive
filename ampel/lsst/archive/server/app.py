@@ -1,11 +1,12 @@
 import base64
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import sqlalchemy
 from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    Query,
     status,
 )
 from fastapi.encoders import jsonable_encoder
@@ -14,8 +15,9 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse
 from zstd_asgi import ZstdMiddleware
 
-from ampel.lsst.archive.db import get_alert_from_s3
+from ampel.lsst.archive.db import get_alert_from_s3, get_blobs_with_condition
 
+from ..queries import cone_search_condition
 from .db import (
     OperationalError,
     get_engine,
@@ -270,64 +272,47 @@ def get_alerts_in_time_range(
         pending=info["pending"],
         remaining=info["remaining"],
     )
+'''
 
 
 @app.get(
     "/alerts/cone_search",
     tags=["search"],
-    response_model=AlertChunk,
+    # response_model=AlertChunk,
     response_model_exclude_none=True,
 )
 def get_alerts_in_cone(
-    ra: float = Query(
-        ..., description="Right ascension of field center in degrees (J2000)"
-    ),
-    dec: float = Query(
-        ..., description="Declination of field center in degrees (J2000)"
-    ),
-    radius: float = Query(..., description="radius of search field in degrees"),
-    jd_start: float = Query(..., description="Earliest observation jd"),
-    jd_end: float = Query(..., description="Latest observation jd"),
-    latest: bool = Query(
-        False, description="Return only the latest alert for each objectId"
-    ),
-    with_history: bool = False,
-    chunk_size: int = Query(
-        100, gt=0, lte=10000, description="Number of alerts to return per page"
-    ),
-    resume_token: Optional[str] = Query(
-        None,
-        description="Identifier of a previous query to continue. This token expires after 24 hours.",
-    ),
+    ra: Annotated[
+        float, Query(description="Right ascension of field center in degrees (J2000)")
+    ],
+    dec: Annotated[
+        float, Query(description="Declination of field center in degrees (J2000)")
+    ],
+    radius: Annotated[float, Query(description="radius of search field in degrees")],
+    # jd_start: Annotated[float, Query(description="Earliest observation jd")],
+    # jd_end: Annotated[float, Query(description="Latest observation jd")],
+    # latest: bool = Query(
+    #     False, description="Return only the latest alert for each objectId"
+    # ),
+    # with_history: bool = False,
+    # chunk_size: int = Query(
+    #     100, gt=0, lte=10000, description="Number of alerts to return per page"
+    # ),
+    # resume_token: Optional[str] = Query(
+    #     None,
+    #     description="Identifier of a previous query to continue. This token expires after 24 hours.",
+    # ),
     engine: sqlalchemy.Engine = Depends(get_engine),
     # auth: bool = Depends(verify_access_token),
     # programid: Optional[int] = Depends(verify_authorized_programid),
-) -> AlertChunk:
-    if resume_token is None:
-        resume_token = secrets.token_urlsafe(32)
-    chunk, alerts = archive.get_alerts_in_cone(
-        ra=ra,
-        dec=dec,
-        radius=radius,
-        jd_start=jd_start,
-        jd_end=jd_end,
-        latest=latest,
-        programid=programid,
-        with_history=with_history,
-        group_name=resume_token,
-        block_size=chunk_size,
-        max_blocks=1,
+) -> None:
+    gen = get_blobs_with_condition(
+        engine, cone_search_condition(ra=ra, dec=dec, radius=radius)
     )
-    info = get_stream_info(resume_token, archive)
-    return AlertChunk(
-        resume_token=resume_token,
-        alerts=alerts,
-        chunk=chunk,
-        pending=info["pending"],
-        remaining=info["remaining"],
-    )
+    return list(gen)
 
 
+'''
 @app.get("/alerts/sample")
 def get_random_alerts(
     count: int = Query(1, ge=1, le=10_000),
