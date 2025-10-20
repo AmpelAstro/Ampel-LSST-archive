@@ -111,21 +111,23 @@ def insert_alert_chunk(
         session.add(blob_record)
         session.flush()
 
+        insert_stmt = insert(Alert)
+        stmt = insert_stmt.on_conflict_do_update(
+            index_elements=[
+                Alert.id,  # type: ignore[list-item]
+            ],
+            set_={
+                k: insert_stmt.excluded[k]
+                for k in ("avro_blob_id", "avro_blob_start", "avro_blob_end")
+            },
+        )
+
         session.exec(
-            insert(Alert)
-            .values(
-                [
-                    Alert.from_alert_packet(
-                        alert, blob_record.id, start, end
-                    ).model_dump()
-                    for alert, (start, end) in zip(alerts, ranges, strict=True)
-                ]
-            )
-            .on_conflict_do_nothing(
-                index_elements=[
-                    Alert.id,  # type: ignore[list-item]
-                ]
-            )
+            stmt,
+            params=[
+                Alert.from_alert_packet(alert, blob_record.id, start, end).model_dump()
+                for alert, (start, end) in zip(alerts, ranges, strict=True)
+            ],
         )
 
 
