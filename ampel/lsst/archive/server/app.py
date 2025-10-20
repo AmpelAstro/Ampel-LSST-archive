@@ -1,9 +1,7 @@
 import base64
 from typing import TYPE_CHECKING, Annotated
 
-import sqlalchemy
 from fastapi import (
-    Depends,
     FastAPI,
     HTTPException,
     Query,
@@ -19,14 +17,14 @@ from ampel.lsst.archive.db import get_alert_from_s3, get_blobs_with_condition
 
 from ..queries import cone_search_condition
 from .db import (
-    OperationalError,
-    get_engine,
-    handle_operationalerror,
+    AsyncSession,
+    QueryCanceledError,
+    handle_querycancelederror,
 )
 from .models import (
     AlertCutouts,
 )
-from .s3 import get_s3_bucket
+from .s3 import Bucket
 from .settings import settings
 
 # from .tokens import (
@@ -94,7 +92,7 @@ app.add_middleware(
 
 # app.include_router(token_router, prefix="/tokens")
 
-app.exception_handler(OperationalError)(handle_operationalerror)
+app.exception_handler(QueryCanceledError)(handle_querycancelederror)
 
 
 @app.get(
@@ -103,15 +101,15 @@ app.exception_handler(OperationalError)(handle_operationalerror)
     # response_model=Alert,  # type: ignore[arg-type]
     # response_model_exclude_none=True,
 )
-def get_alert(
+async def get_alert(
     diaSourceId: int,
-    engine: sqlalchemy.Engine = Depends(get_engine),
-    bucket=Depends(get_s3_bucket),
+    session: AsyncSession,
+    bucket: Bucket,
 ):
     """
     Get a single alert by candidate id.
     """
-    if alert := get_alert_from_s3(diaSourceId, engine, bucket):
+    if alert := await get_alert_from_s3(diaSourceId, session, bucket):
         return jsonable_encoder(
             alert, custom_encoder={bytes: lambda b: base64.b64encode(b).decode("utf-8")}
         )
@@ -121,12 +119,12 @@ def get_alert(
 
 
 @app.get("/alert/{diaSourceId}/cutouts", tags=["cutouts"], response_model=AlertCutouts)
-def get_cutouts(
+async def get_cutouts(
     diaSourceId: int,
-    engine: sqlalchemy.Engine = Depends(get_engine),
-    bucket=Depends(get_s3_bucket),
+    session: AsyncSession,
+    bucket: Bucket,
 ):
-    if alert := get_alert_from_s3(diaSourceId, engine, bucket):
+    if alert := await get_alert_from_s3(diaSourceId, session, bucket):
         return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
     raise HTTPException(status_code=404)
 
@@ -139,15 +137,15 @@ try:
         tags=["cutouts"],
         response_model=AlertCutouts,
     )
-    def get_cutouts_png(
+    async def get_cutouts_png(
         diaSourceId: int,
-        engine: sqlalchemy.Engine = Depends(get_engine),
-        bucket=Depends(get_s3_bucket),
+        session: AsyncSession,
+        bucket: Bucket,
     ):
         """
         Get cutouts as PNG images
         """
-        if alert := get_alert_from_s3(diaSourceId, engine, bucket):
+        if alert := await get_alert_from_s3(diaSourceId, session, bucket):
             for k in "cutoutTemplate", "cutoutScience", "cutoutDifference":
                 if alert[k] is not None:
                     alert[k] = fits_to_png(alert[k])
@@ -281,7 +279,7 @@ def get_alerts_in_time_range(
     # response_model=AlertChunk,
     response_model_exclude_none=True,
 )
-def get_alerts_in_cone(
+async def get_alerts_in_cone(
     ra: Annotated[
         float, Query(description="Right ascension of field center in degrees (J2000)")
     ],
@@ -302,14 +300,14 @@ def get_alerts_in_cone(
     #     None,
     #     description="Identifier of a previous query to continue. This token expires after 24 hours.",
     # ),
-    engine: sqlalchemy.Engine = Depends(get_engine),
+    session: AsyncSession,
     # auth: bool = Depends(verify_access_token),
     # programid: Optional[int] = Depends(verify_authorized_programid),
-) -> None:
+) -> list[tuple[str, int, int, int]]:
     gen = get_blobs_with_condition(
-        engine, cone_search_condition(ra=ra, dec=dec, radius=radius)
+        session, cone_search_condition(ra=ra, dec=dec, radius=radius)
     )
-    return list(gen)
+    return [blob async for blob in gen]
 
 
 '''

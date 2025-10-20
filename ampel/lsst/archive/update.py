@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import signal
 import struct
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import partial
@@ -110,15 +112,15 @@ def main(
             f"Dropped {sum(len(b.records) for b in dropped)} records on {len(dropped)} topics"
         )
 
-    def flush(key: tuple[str, int]) -> None:
+    async def flush(key: tuple[str, int]) -> None:
         """
         Store buffered records and commit offsets.
         """
         buffer = buffers.pop(key)
-        ensure_schema(get_engine(), buffer.schema_id, buffer.schema_str)
-        insert_alert_chunk(
+        await ensure_schema(get_engine(), buffer.schema_id, buffer.schema_str)
+        await insert_alert_chunk(
             get_engine(),
-            get_s3_bucket(),
+            await get_s3_bucket(),
             buffer.schema_id,
             f"{topic}/{buffer.start_offset.partition:03d}/{buffer.start_offset.offset:020d}-{buffer.end_offset.offset:020d}",
             buffer.records,
@@ -140,6 +142,8 @@ def main(
         )
 
     consumer.subscribe([topic], on_revoke=on_revoke)
+
+    executor = ThreadPoolExecutor(max_workers=1)
 
     stop = Event()
 
@@ -171,43 +175,46 @@ def main(
     interval = 5
     max_tries = max(1, int(timeout / interval / 2))
 
-    while not stop.is_set():
-        msg = None
-        for _ in range(max_tries):
-            msg = consumer.poll(interval)
-            if msg or stop.is_set():
-                break
-        now = datetime.now(UTC)
-        if msg is None:
-            ...
-        elif err := msg.error():
-            raise KafkaException(err)
-        else:
-            offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())  # type: ignore[arg-type]
-            schema_id, schema, record = unpack(msg)
-
-            key = (offset.topic, offset.partition)
-            # if buffer full or schema changed, upload chunk and reset
-            if key in buffers and (
-                len(buffers[key].records) >= chunk_size
-                or buffers[key].schema_id != schema_id
-            ):
-                flush(key)
-            if key in buffers:
-                buffers[key].records.append(record)
-                buffers[key].end_offset = offset
-                buffers[key].last_seen = now
+    async def run():
+        loop = asyncio.get_running_loop()
+        while not stop.is_set():
+            msg = None
+            for _ in range(max_tries):
+                msg = await loop.run_in_executor(executor, consumer.poll, interval)
+                if msg or stop.is_set():
+                    break
+            now = datetime.now(UTC)
+            if msg is None:
+                ...
+            elif err := msg.error():
+                raise KafkaException(err)
             else:
-                buffers[key] = PartitionBuffer(
-                    [record], schema_id, schema, offset, offset, now
-                )
+                offset = TopicPartition(msg.topic(), msg.partition(), msg.offset())  # type: ignore[arg-type]
+                schema_id, schema, record = unpack(msg)
 
-        # flush buffers that have been inactive for too long
-        for key in list(buffers):
-            if (now - buffers[key].last_seen).total_seconds() > timeout:
-                log.info(f"Flushing partition {key} due to inactivity")
-                flush(key)
+                key = (offset.topic, offset.partition)
+                # if buffer full or schema changed, upload chunk and reset
+                if key in buffers and (
+                    len(buffers[key].records) >= chunk_size
+                    or buffers[key].schema_id != schema_id
+                ):
+                    await flush(key)
+                if key in buffers:
+                    buffers[key].records.append(record)
+                    buffers[key].end_offset = offset
+                    buffers[key].last_seen = now
+                else:
+                    buffers[key] = PartitionBuffer(
+                        [record], schema_id, schema, offset, offset, now
+                    )
 
+            # flush buffers that have been inactive for too long
+            for key in list(buffers):
+                if (now - buffers[key].last_seen).total_seconds() > timeout:
+                    log.info(f"Flushing partition {key} due to inactivity")
+                    await flush(key)
+
+    asyncio.run(run())
     consumer.close()
 
 

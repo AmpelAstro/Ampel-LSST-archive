@@ -1,92 +1,64 @@
-import io
-from functools import lru_cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlsplit
 
-import boto3
-import fastavro
-from botocore.exceptions import ClientError
-from starlette.status import HTTP_404_NOT_FOUND
+import aioboto3
+from aiobotocore.response import StreamingBody
+from async_lru import alru_cache
+from fastapi import Depends
 
 from .settings import settings
 
 if TYPE_CHECKING:
-    from typing import BinaryIO
-
-    from mypy_boto3_s3.service_resource import Bucket
-
-
-class NoSuchKey(KeyError): ...
+    from types_aiobotocore_s3.service_resource import Bucket as _Bucket
+    from types_aiobotocore_s3.service_resource import S3ServiceResource
 
 
-ALERT_SCHEMAS: dict[int, Any] = {}
-
-
-def get_parsed_schema(schema_id: int, schema: dict):
-    key = schema_id
-    if key not in ALERT_SCHEMAS:
-        ALERT_SCHEMAS[key] = fastavro.parse_schema(schema)
-    return ALERT_SCHEMAS[key]
-
-
-def read_schema(fo: "BinaryIO") -> dict[str, Any]:
-    reader = fastavro.reader(fo)
-    assert isinstance(reader.writer_schema, dict)
-    return reader.writer_schema
-
-
-@lru_cache(maxsize=1)
-def get_s3_bucket() -> "Bucket":
-    return boto3.resource(
+@alru_cache(maxsize=1)
+async def get_s3_client() -> "S3ServiceResource":
+    session = aioboto3.Session()
+    # fake `async with`: https://github.com/terricain/aioboto3/issues/197#issuecomment-756992493
+    return await session.resource(
         "s3",
         endpoint_url=str(settings.s3_endpoint_url)
         if settings.s3_endpoint_url
         else None,
         verify=not settings.s3_insecure,
-    ).Bucket(settings.s3_bucket)
+    ).__aenter__()
 
 
-def get_object(bucket: "Bucket", key: str) -> bytes:
-    buffer = io.BytesIO()
-    try:
-        bucket.download_fileobj(Key=key, Fileobj=buffer)
-    except ClientError as err:
-        if err.response["Error"]["Code"] == str(HTTP_404_NOT_FOUND):
-            raise KeyError() from err
-        raise
-    return buffer.getvalue()
+async def get_s3_bucket() -> "_Bucket":
+    resource = await get_s3_client()
+    return await resource.Bucket(settings.s3_bucket)
 
 
-def get_stream(bucket: "Bucket", key: str) -> "BinaryIO":
-    response = bucket.Object(key).get()
+Bucket = Annotated["_Bucket", Depends(get_s3_bucket)]
+
+
+async def get_stream(bucket: "_Bucket", key: str) -> "StreamingBody":
+    response = await (await bucket.Object(key)).get()
     if response["ResponseMetadata"]["HTTPStatusCode"] <= 400:  # noqa: PLR2004
-        return response["Body"]  # type: ignore[return-value]
+        return response["Body"]
     raise KeyError
 
 
-def get_range(
-    bucket: "Bucket", key: str, start: int, end: int
-) -> tuple["BinaryIO", dict]:
-    obj = bucket.Object(key)
+async def get_range(
+    bucket: "_Bucket", key: str, start: int, end: int
+) -> "StreamingBody":
+    obj = await bucket.Object(key)
     try:
-        response = obj.get(Range=f"bytes={start}-{end}")
+        response = await obj.get(Range=f"bytes={start}-{end}")
     except bucket.meta.client.exceptions.NoSuchKey as err:
         raise KeyError(f"bucket {bucket.name} has no key {key}") from err
     if response["ResponseMetadata"]["HTTPStatusCode"] <= 400:  # noqa: PLR2004
-        schema_key = int(obj.metadata["schema-id"])
-        if schema_key not in ALERT_SCHEMAS:
-            schema = get_parsed_schema(schema_key, read_schema(get_stream(bucket, key)))
-        else:
-            schema = ALERT_SCHEMAS[schema_key]
-        return response["Body"], schema  # type: ignore[return-value]
+        return response["Body"]
     raise KeyError
 
 
-def get_url_for_key(bucket: "Bucket", key: str) -> str:
+def get_url_for_key(bucket: "_Bucket", key: str) -> str:
     return f"{settings.s3_endpoint_url or ''}/{bucket.name}/{key}"
 
 
-def get_key_for_url(bucket: "Bucket", uri: str) -> str:
+def get_key_for_url(bucket: "_Bucket", uri: str) -> str:
     path = urlsplit(uri).path.split("/")
     assert path[-2] == bucket.name
     return path[-1]

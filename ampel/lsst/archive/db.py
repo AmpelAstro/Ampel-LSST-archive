@@ -1,92 +1,99 @@
 import base64
 import hashlib
+import io
 import json
-from collections.abc import Callable, Generator, Sequence
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator, Callable, Sequence
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 import fastavro
 from fastavro.types import Schema
 from sqlalchemy.dialects.postgresql import insert
-from sqlmodel import Session, join, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import join, select
 
 from .avro import extract_record, pack_records
 from .models import Alert, AvroBlob, AvroSchema
 from .server.s3 import get_range
 
 if TYPE_CHECKING:
-    from mypy_boto3_s3.service_resource import Bucket
-    from sqlalchemy import Engine
+    from sqlalchemy.ext.asyncio import AsyncEngine
     from sqlalchemy.sql.elements import ColumnElement
+
+    from .server.s3 import Bucket
 
 
 AVRO_SCHEMAS: dict[int, Schema] = {}
 
 
-def ensure_schema(engine: "Engine", schema_id: int, content: str) -> Schema:
+async def ensure_schema(engine: "AsyncEngine", schema_id: int, content: str) -> Schema:
     if schema_id not in AVRO_SCHEMAS:
-        with Session(engine) as session:
-            schema = session.exec(
-                select(AvroSchema).where(AvroSchema.id == schema_id)
-            ).first()
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            schema = (
+                await session.execute(
+                    select(AvroSchema).where(AvroSchema.id == schema_id)
+                )
+            ).scalar()
             if schema is None:
-                session.exec(insert(AvroSchema).values(id=schema_id, content=content))
-                session.commit()
+                await session.execute(
+                    insert(AvroSchema).values(id=schema_id, content=content)
+                )
+                await session.commit()
             else:
                 content = schema.content
         AVRO_SCHEMAS[schema_id] = fastavro.parse_schema(json.loads(content))
     return AVRO_SCHEMAS[schema_id]
 
 
-def get_schema(engine: "Engine", schema_id: int) -> Schema:
+async def get_schema(session: "AsyncSession", schema_id: int) -> Schema:
     if schema_id not in AVRO_SCHEMAS:
-        with Session(engine) as session:
-            schema = session.exec(
-                select(AvroSchema).where(AvroSchema.id == schema_id)
-            ).first()
-            if schema is None:
-                raise KeyError(f"No schema with id {schema_id}")
+        schema = (
+            await session.execute(select(AvroSchema).where(AvroSchema.id == schema_id))
+        ).scalar()
+        if schema is None:
+            raise KeyError(f"No schema with id {schema_id}")
         AVRO_SCHEMAS[schema_id] = fastavro.parse_schema(json.loads(schema.content))
     return AVRO_SCHEMAS[schema_id]
 
 
-@contextmanager
-def _rollback_on_exception(
-    engine: "Engine",
+@asynccontextmanager
+async def _rollback_on_exception(
+    engine: "AsyncEngine",
     on_exception: None | Callable[[], Any] = None,
     on_complete: None | Callable[[], Any] = None,
-) -> Generator[Session, None, None]:
-    with Session(engine) as session:
+) -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSession(engine) as session:
         try:
             yield session
-            session.flush()
+            await session.flush()
             if on_complete is not None:
                 on_complete()
-            session.commit()
+            await session.commit()
         except:
             if on_exception is not None:
                 on_exception()
-            session.rollback()
+            await session.rollback()
             raise
 
 
-def insert_alert_chunk(
-    engine: "Engine",
+async def insert_alert_chunk(
+    engine: "AsyncEngine",
     bucket: "Bucket",
     schema_id: int,
     key: str,
     alerts: Sequence[dict],
     on_complete: None | Callable[[], Any] = None,
 ):
-    schema = get_schema(engine, schema_id)
+    async with AsyncSession(engine) as session:
+        schema = await get_schema(session, schema_id)
 
     blob, ranges = pack_records(schema, alerts)
     name = f"{key}.avro"
     md5 = base64.b64encode(hashlib.md5(blob).digest()).decode("utf-8")
 
-    obj = bucket.Object(name)
+    obj = await bucket.Object(name)
 
-    s3_response = obj.put(
+    s3_response = await obj.put(
         Body=blob,
         ContentMD5=md5,
         ContentType="application/avro",
@@ -97,7 +104,7 @@ def insert_alert_chunk(
     )
     assert 200 <= s3_response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
 
-    with _rollback_on_exception(
+    async with _rollback_on_exception(
         engine,
         on_exception=obj.delete,
         on_complete=on_complete,
@@ -110,7 +117,7 @@ def insert_alert_chunk(
             refcount=0,
         )
         session.add(blob_record)
-        session.flush()
+        await session.flush()
 
         insert_stmt = insert(Alert)
         stmt = insert_stmt.on_conflict_do_update(
@@ -123,7 +130,7 @@ def insert_alert_chunk(
             },
         )
 
-        session.exec(
+        await session.execute(
             stmt,
             params=[
                 Alert.from_alert_packet(alert, blob_record.id, start, end).model_dump()
@@ -132,41 +139,43 @@ def insert_alert_chunk(
         )
 
 
-def get_blobs_with_condition(
-    engine: "Engine",
+async def get_blobs_with_condition(
+    session: "AsyncSession",
     conditions: "Sequence[ColumnElement[bool] | bool]",
-) -> Generator[tuple[str, int, int], None, None]:
-    with Session(engine) as session:
-        for blob in session.exec(
-            select(
-                AvroBlob.uri,
-                Alert.avro_blob_start,
-                Alert.avro_blob_end,
+) -> AsyncGenerator[tuple[str, int, int, int], None]:
+    for blob in await session.execute(
+        select(
+            AvroBlob.uri,
+            Alert.avro_blob_start,
+            Alert.avro_blob_end,
+            AvroBlob.schema_id,
+        )
+        .select_from(
+            join(
+                Alert,
+                AvroBlob,
+                Alert.avro_blob_id == AvroBlob.id,  # type: ignore[arg-type]
             )
-            .select_from(
-                join(
-                    Alert,
-                    AvroBlob,
-                    Alert.avro_blob_id == AvroBlob.id,  # type: ignore[arg-type]
-                )
-            )
-            .where(*conditions)
-        ):
-            uri, start, end = blob
-            yield (uri, start, end)
+        )
+        .where(*conditions)
+    ):
+        uri, start, end, schema_id = blob
+        yield (uri, start, end, schema_id)
 
 
-def get_alert_from_s3(
+async def get_alert_from_s3(
     id: int,
-    engine: "Engine",
+    session: "AsyncSession",
     bucket: "Bucket",
 ) -> dict | None:
-    for uri, start, end in get_blobs_with_condition(
-        engine,
+    async for uri, start, end, schema_id in get_blobs_with_condition(
+        session,
         [Alert.id == id],
     ):
+        schema = await get_schema(session, schema_id)
+        body = await get_range(bucket, uri, start, end)
         try:
-            record = extract_record(*get_range(bucket, uri, start, end))
+            record = extract_record(io.BytesIO(await body.read()), schema)
         except KeyError:
             return None
         assert isinstance(record, dict)
