@@ -143,7 +143,7 @@ def main(
 
     stop = Event()
 
-    def handler(signum, frame):
+    def set_stop(signum, frame):
         log.info(f"Received signal {signum}, exiting")
         log.info(
             f"{sum(len(b.records) for b in buffers.values())} records on {len(buffers)} topics left unflushed"
@@ -151,12 +151,25 @@ def main(
         stop.set()
 
     for sig in (signal.SIGTERM, signal.SIGINT):
-        signal.signal(sig, handler)
+        signal.signal(sig, set_stop)
+
+    def dump_state(signum, frame):
+        assignment = consumer.assignment()
+        log.info(f"Current assignment: {len(assignment)} partitions")
+        for tp in assignment:
+            buffer = buffers.get((tp.topic, tp.partition))
+            log.info(f" - {tp}")
+            log.info(f"   Watermark: {consumer.get_watermark_offsets(tp)}")
+            log.info(f"   Buffered: {len(buffer.records) if buffer else 0} records")
+            if buffer:
+                log.info(f"   Last seen: {buffer.last_seen}")
+                log.info(f"   Start offset: {buffer.start_offset}")
+                log.info(f"   End offset: {buffer.end_offset}")
+
+    signal.signal(signal.SIGUSR1, dump_state)
 
     interval = 5
     max_tries = max(1, int(timeout / interval / 2))
-
-    last_info = datetime.now(UTC)
 
     while not stop.is_set():
         msg = None
@@ -188,19 +201,6 @@ def main(
                 buffers[key] = PartitionBuffer(
                     [record], schema_id, schema, offset, offset, now
                 )
-        if (now - last_info).total_seconds() >= timeout:
-            assignment = consumer.assignment()
-            log.info(f"Current assignment: {len(assignment)} partitions")
-            for tp in assignment:
-                buffer = buffers.get((tp.topic, tp.partition))
-                log.info(f" - {tp}")
-                log.info(f"   Watermark: {consumer.get_watermark_offsets(tp)}")
-                log.info(f"   Buffered: {len(buffer.records) if buffer else 0} records")
-                if buffer:
-                    log.info(f"   Last seen: {buffer.last_seen}")
-                    log.info(f"   Start offset: {buffer.start_offset}")
-                    log.info(f"   End offset: {buffer.end_offset}")
-            last_info = now
 
         # flush buffers that have been inactive for too long
         for key in list(buffers):
