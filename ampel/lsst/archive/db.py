@@ -3,7 +3,6 @@ import hashlib
 import io
 import json
 from collections.abc import AsyncGenerator, Callable, Sequence
-from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 import fastavro
@@ -12,13 +11,14 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import join, select
 
-from .avro import extract_record, pack_records
-from .models import Alert, AvroBlob, AvroSchema
+from .avro import extract_record, pack_blocks, pack_records
+from .models import Alert, AvroBlob, AvroSchema, BaseBlob, ResultBlob, ResultGroup
 from .server.s3 import get_range
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
     from sqlalchemy.sql.elements import ColumnElement
+    from types_aiobotocore_s3.service_resource import Object
 
     from .server.s3 import Bucket
 
@@ -56,24 +56,29 @@ async def get_schema(session: "AsyncSession", schema_id: int) -> Schema:
     return AVRO_SCHEMAS[schema_id]
 
 
-@asynccontextmanager
-async def _rollback_on_exception(
-    engine: "AsyncEngine",
-    on_exception: None | Callable[[], Any] = None,
-    on_complete: None | Callable[[], Any] = None,
-) -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSession(engine) as session:
-        try:
-            yield session
-            await session.flush()
-            if on_complete is not None:
-                on_complete()
-            await session.commit()
-        except:
-            if on_exception is not None:
-                on_exception()
-            await session.rollback()
-            raise
+async def store_alert_chunk(
+    bucket: "Bucket", session: "AsyncSession", record: BaseBlob, blob: bytes
+) -> "Object":
+    obj = await bucket.Object(record.uri)
+    s3_response = await obj.put(
+        Body=blob,
+        ContentMD5=base64.b64encode(hashlib.md5(blob).digest()).decode("utf-8"),
+        ContentType="application/avro",
+        Metadata={
+            "schema-id": str(record.schema_id),
+            "count": str(record.count),
+        },
+    )
+    assert 200 <= s3_response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
+
+    session.add(record)
+    try:
+        await session.flush()
+    except:
+        await obj.delete()
+        raise
+
+    return obj
 
 
 async def insert_alert_chunk(
@@ -84,31 +89,15 @@ async def insert_alert_chunk(
     alerts: Sequence[dict],
     on_complete: None | Callable[[], Any] = None,
 ):
-    async with AsyncSession(engine) as session:
+    async with (
+        AsyncSession(engine, expire_on_commit=False) as session,
+        session.begin() as transaction,
+    ):
         schema = await get_schema(session, schema_id)
 
-    blob, ranges = pack_records(schema, alerts)
-    name = f"{key}.avro"
-    md5 = base64.b64encode(hashlib.md5(blob).digest()).decode("utf-8")
+        blob, ranges = pack_records(schema, alerts)
+        name = f"{key}.avro"
 
-    obj = await bucket.Object(name)
-
-    s3_response = await obj.put(
-        Body=blob,
-        ContentMD5=md5,
-        ContentType="application/avro",
-        Metadata={
-            "schema-id": str(schema_id),
-            "count": str(len(ranges)),
-        },
-    )
-    assert 200 <= s3_response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
-
-    async with _rollback_on_exception(
-        engine,
-        on_exception=obj.delete,
-        on_complete=on_complete,
-    ) as session:
         blob_record = AvroBlob(
             schema_id=schema_id,
             uri=name,
@@ -116,27 +105,37 @@ async def insert_alert_chunk(
             size=len(blob),
             refcount=0,
         )
-        session.add(blob_record)
-        await session.flush()
+        obj = await store_alert_chunk(bucket, session, blob_record, blob)
 
-        insert_stmt = insert(Alert)
-        stmt = insert_stmt.on_conflict_do_update(
-            index_elements=[
-                Alert.id,  # type: ignore[list-item]
-            ],
-            set_={
-                k: insert_stmt.excluded[k]
-                for k in ("avro_blob_id", "avro_blob_start", "avro_blob_end")
-            },
-        )
+        try:
+            insert_stmt = insert(Alert)
+            stmt = insert_stmt.on_conflict_do_update(
+                index_elements=[
+                    Alert.id,  # type: ignore[list-item]
+                ],
+                set_={
+                    k: insert_stmt.excluded[k]
+                    for k in ("avro_blob_id", "avro_blob_start", "avro_blob_end")
+                },
+            )
 
-        await session.execute(
-            stmt,
-            params=[
-                Alert.from_alert_packet(alert, blob_record.id, start, end).model_dump()
-                for alert, (start, end) in zip(alerts, ranges, strict=True)
-            ],
-        )
+            await session.execute(
+                stmt,
+                params=[
+                    Alert.from_alert_packet(
+                        alert, blob_record.id, start, end
+                    ).model_dump()
+                    for alert, (start, end) in zip(alerts, ranges, strict=True)
+                ],
+            )
+            await session.flush()
+            await transaction.commit()
+            if on_complete is not None:
+                on_complete()
+        except:
+            await transaction.rollback()
+            await obj.delete()
+            raise
 
 
 async def get_blobs_with_condition(
@@ -161,6 +160,52 @@ async def get_blobs_with_condition(
     ):
         uri, start, end, schema_id = blob
         yield (uri, start, end, schema_id)
+
+
+async def store_search_results(
+    session: "AsyncSession",
+    bucket: "Bucket",
+    group: ResultGroup,
+    conditions: "Sequence[ColumnElement[bool] | bool]",
+):
+    bodies: list[bytes] = []
+    last_schema_id = None
+    chunk_size = group.chunk_size
+    count = 1
+    chunk = 0
+
+    async def flush():
+        blob = pack_blocks(await get_schema(session, schema_id), bodies)
+        return await store_alert_chunk(
+            bucket,
+            session,
+            ResultBlob(
+                schema_id=last_schema_id if last_schema_id is not None else schema_id,
+                group_id=group.id,
+                uri=f"group/{group.name}/{chunk:020d}.avro",
+                count=len(bodies),
+                size=len(blob),
+            ),
+            blob,
+        )
+
+    async for uri, start, end, schema_id in get_blobs_with_condition(
+        session, conditions
+    ):
+        body = await get_range(bucket, uri, start, end)
+        bodies.append(await body.read())
+        if (
+            last_schema_id is not None and schema_id != last_schema_id
+        ) or count >= chunk_size:
+            await flush()
+
+            bodies.clear()
+            count = 1
+            chunk += 1
+        last_schema_id = schema_id
+
+    if bodies:
+        await flush()
 
 
 async def get_alert_from_s3(

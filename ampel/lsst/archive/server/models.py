@@ -419,6 +419,10 @@ class Alert_402(Alert_33):
 Alert = Alert_33 | Alert_402
 
 
+class AsyncResult(BaseModel):
+    resume_token: str
+
+
 class AlertChunk(BaseModel):
     resume_token: str
     chunk: int | None = None

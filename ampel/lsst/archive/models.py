@@ -6,17 +6,20 @@ from sqlmodel import Field, SQLModel
 NSIDE = 1 << 16
 
 
-class AvroBlob(SQLModel, table=True):
-    """
-    SQLModel class for the AvroBlob table.
-    """
-
+class BaseBlob(SQLModel):
     id: int = Field(default=None, primary_key=True, sa_type=BigInteger)
     schema_id: int = Field(foreign_key="avroschema.id")
     uri: str
     count: int
-    refcount: int
     size: int
+
+
+class AvroBlob(BaseBlob, table=True):
+    """
+    SQLModel class for the AvroBlob table.
+    """
+
+    refcount: int
 
 
 class AvroSchema(SQLModel, table=True):
@@ -26,6 +29,16 @@ class AvroSchema(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
     content: str  # JSON schema as string
+
+
+class ResultGroup(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True, sa_type=BigInteger)
+    name: str = Field(unique=True)
+    chunk_size: int
+
+
+class ResultBlob(BaseBlob, table=True):
+    group_id: int = Field(foreign_key="resultgroup.id")
 
 
 class Alert(SQLModel, table=True):

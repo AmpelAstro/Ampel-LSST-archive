@@ -1,4 +1,5 @@
 import base64
+import secrets
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import (
@@ -11,19 +12,21 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse
+from sqlalchemy import delete
+from sqlmodel import select
 from zstd_asgi import ZstdMiddleware
 
-from ampel.lsst.archive.db import get_alert_from_s3, get_blobs_with_condition
+from ampel.lsst.archive.db import get_alert_from_s3
 
+from ..db import store_search_results
+from ..models import ResultBlob, ResultGroup
 from ..queries import cone_search_condition
 from .db import (
     AsyncSession,
     QueryCanceledError,
     handle_querycancelederror,
 )
-from .models import (
-    AlertCutouts,
-)
+from .models import AlertCutouts, AsyncResult
 from .s3 import Bucket
 from .settings import settings
 
@@ -301,13 +304,61 @@ async def get_alerts_in_cone(
     #     description="Identifier of a previous query to continue. This token expires after 24 hours.",
     # ),
     session: AsyncSession,
+    bucket: Bucket,
     # auth: bool = Depends(verify_access_token),
     # programid: Optional[int] = Depends(verify_authorized_programid),
-) -> list[tuple[str, int, int, int]]:
-    gen = get_blobs_with_condition(
-        session, cone_search_condition(ra=ra, dec=dec, radius=radius)
+) -> AsyncResult:
+    resume_token = secrets.token_urlsafe(32)
+
+    group = ResultGroup(name=resume_token, chunk_size=1000)
+    session.add(group)
+    await session.flush()
+
+    await store_search_results(
+        session, bucket, group, cone_search_condition(ra=ra, dec=dec, radius=radius)
     )
-    return [blob async for blob in gen]
+
+    return AsyncResult(resume_token=resume_token)
+
+
+@app.delete(
+    "/alerts/async_result/{resume_token}",
+    tags=["search"],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_async_result(resume_token: str, session: AsyncSession, bucket: Bucket):
+    group = (
+        await session.execute(
+            select(ResultGroup).filter(
+                ResultGroup.name == resume_token,  # type: ignore[arg-type]
+            )
+        )
+    ).scalar()
+    if group:
+        # bulk delete blobs from S3 in groups of 1000
+        async for uris in (
+            await session.stream_scalars(
+                select(ResultBlob.uri)
+                .filter(
+                    ResultBlob.group_id == group.id,  # type: ignore[arg-type]
+                )
+                .execution_options(yield_per=1000)
+            )
+        ).partitions():
+            response = await bucket.meta.client.delete_objects(
+                Bucket=bucket.name, Delete={"Objects": [{"Key": key} for key in uris]}
+            )
+            assert response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
+
+        await session.execute(
+            delete(ResultBlob).where(
+                ResultBlob.group_id == group.id,  # type: ignore[arg-type]
+            )
+        )
+        await session.delete(group)
+        await session.commit()
+    else:
+        raise HTTPException(status_code=404, detail="Async result not found")
 
 
 '''
