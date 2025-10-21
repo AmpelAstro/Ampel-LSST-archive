@@ -4,6 +4,7 @@ import secrets
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import (
+    BackgroundTasks,
     Depends,
     FastAPI,
     HTTPException,
@@ -26,6 +27,7 @@ from ..queries import cone_search_condition
 from .db import (
     AsyncSession,
     QueryCanceledError,
+    get_session,
     handle_querycancelederror,
 )
 from .models import AlertCutouts, AsyncResult
@@ -307,18 +309,34 @@ async def get_alerts_in_cone(
     # ),
     session: AsyncSession,
     bucket: Bucket,
+    tasks: BackgroundTasks,
     # auth: bool = Depends(verify_access_token),
     # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> AsyncResult:
+    conditions = cone_search_condition(ra=ra, dec=dec, radius=radius)
+
     resume_token = secrets.token_urlsafe(32)
 
     group = ResultGroup(name=resume_token, chunk_size=1000)
     session.add(group)
     await session.flush()
 
-    await store_search_results(
-        session, bucket, group, cone_search_condition(ra=ra, dec=dec, radius=radius)
-    )
+    async def populate_chunks():
+        async with get_session() as task_session:
+            try:
+                await store_search_results(
+                    task_session,
+                    bucket,
+                    group,
+                    conditions,
+                )
+                group.error = False
+            except Exception as e:
+                group.error = True
+                group.msg = str(e)
+            task_session.add(group)
+
+    tasks.add_task(populate_chunks)
 
     return AsyncResult(resume_token=resume_token)
 
@@ -700,16 +718,16 @@ async def get_group(resume_token: str, session: AsyncSession) -> ResultGroup:
     )
     if not group:
         raise HTTPException(status_code=404, detail="Stream not found") from None
-    #     if info["error"] is None:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_423_LOCKED,
-    #             detail={"msg": "queue-populating query has not yet finished"},
-    #         )
-    #     if info["error"]:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_424_FAILED_DEPENDENCY,
-    #             detail={"msg": info["msg"]},
-    #         )
+    if group.error is None:
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail={"msg": "queue-populating query has not yet finished"},
+        )
+    if group.error:
+        raise HTTPException(
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
+            detail={"msg": group.msg},
+        )
     return group
 
 

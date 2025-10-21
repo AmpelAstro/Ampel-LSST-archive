@@ -37,6 +37,8 @@ class ResultGroup(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, sa_type=BigInteger)
     name: str = Field(unique=True)
     chunk_size: int
+    error: None | bool = Field(default=None)
+    msg: None | str = Field(default=None)
 
 
 class ResultBlob(BaseBlob, table=True):

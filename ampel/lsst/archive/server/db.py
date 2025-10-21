@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Annotated
 
@@ -24,6 +25,7 @@ def get_engine() -> AsyncEngine:
     )
 
 
+@asynccontextmanager
 async def get_session() -> AsyncGenerator[_AsyncSession, None]:
     async with (
         _AsyncSession(get_engine(), expire_on_commit=False) as session,
@@ -32,7 +34,9 @@ async def get_session() -> AsyncGenerator[_AsyncSession, None]:
         yield session
 
 
-AsyncSession = Annotated[_AsyncSession, Depends(get_session)]
+# NB: Depends does the same thing as asynccontextmanager, so unwrap to get the
+# underlying function
+AsyncSession = Annotated[_AsyncSession, Depends(get_session().func)]
 
 
 async def handle_querycancelederror(request: Request, exc: QueryCanceledError):
