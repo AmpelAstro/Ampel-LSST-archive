@@ -9,6 +9,18 @@ from matplotlib.figure import Figure
 from scipy import ndimage
 
 
+def strip_extra_hdus(cutout_data: bytes) -> bytes:
+    """
+    Remove all HDUs except the primary from a cutout FITS file
+    """
+    with (
+        fits.open(io.BytesIO(cutout_data), lazy_load_hdus=True) as hdus,
+        io.BytesIO() as buf,
+    ):
+        hdus[:1].writeto(buf)
+        return buf.getvalue()
+
+
 def get_image_north_up_east_left(cutout_data: bytes) -> np.ndarray:
     """
     Rotate image cutout so that North is up and East is left

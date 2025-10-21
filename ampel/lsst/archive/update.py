@@ -2,6 +2,7 @@ import asyncio
 import logging
 import signal
 import struct
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -16,6 +17,7 @@ from confluent_kafka.schema_registry.avro import AvroDeserializer
 from confluent_kafka.serialization import MessageField, SerializationContext
 
 from ampel.lsst.archive.db import ensure_schema, insert_alert_chunk
+from ampel.lsst.archive.server.cutouts import strip_extra_hdus
 from ampel.lsst.archive.server.db import get_engine
 from ampel.lsst.archive.server.s3 import get_s3_bucket
 
@@ -28,10 +30,15 @@ log = logging.getLogger(__name__)
 
 
 class AvroWithSchemaDeserializer:
-    def __init__(self, schema_registry_client: SchemaRegistryClient):
+    def __init__(
+        self,
+        schema_registry_client: SchemaRegistryClient,
+        transform: Callable[[dict], dict] | None = None,
+    ):
         self.schema_registry_client = schema_registry_client
         self.inner_deserializer = AvroDeserializer(self.schema_registry_client)
         self._schema_cache: dict[int, str] = {}
+        self.transform = transform
 
     def __call__(self, message: Message) -> tuple[int, str, dict]:
         topic = message.topic()
@@ -41,6 +48,8 @@ class AvroWithSchemaDeserializer:
         assert isinstance(payload, bytes)
         record = self.inner_deserializer(payload, ctx)
         assert isinstance(record, dict)
+        if self.transform:
+            record = self.transform(record)
         _, schema_id = struct.unpack(">bI", payload[:5])
 
         if schema_id not in self._schema_cache:
@@ -49,6 +58,16 @@ class AvroWithSchemaDeserializer:
             self._schema_cache[schema_id] = schema.schema_str
 
         return (schema_id, self._schema_cache[schema_id], record)
+
+
+def strip_aux_images(record: dict) -> dict:
+    """
+    Remove auxiliary planes from cutouts in an alert record to save space.
+    """
+    return {
+        k: strip_extra_hdus(v) if k.startswith("cutout") else v
+        for k, v in record.items()
+    }
 
 
 @dataclass
@@ -74,6 +93,7 @@ def main(
     group: Annotated[str, typer.Option(envvar="KAFKA_GROUP")] = "ampel-idfint-archive",
     instance: Annotated[None | str, typer.Option(envvar="HOSTNAME")] = None,
     store_offsets: Annotated[bool, typer.Option()] = True,
+    drop_aux_images: Annotated[bool, typer.Option()] = False,
     chunk_size: Annotated[int, typer.Option()] = 1000,
     timeout: Annotated[float, typer.Option()] = 300.0,
 ):
@@ -94,7 +114,10 @@ def main(
             "error_cb": _raise_errors,
         }
     )
-    unpack = AvroWithSchemaDeserializer(SchemaRegistryClient({"url": registry}))
+    unpack = AvroWithSchemaDeserializer(
+        SchemaRegistryClient({"url": registry}),
+        transform=strip_aux_images if drop_aux_images else None,
+    )
 
     buffers: dict[tuple[str, int], PartitionBuffer] = {}
 
