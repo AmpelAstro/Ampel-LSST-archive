@@ -20,6 +20,11 @@ class Settings(BaseSettings):
         validation_alias="STREAM_QUERY_TIMEOUT",
         description="Timeout for asynchronous queries, in seconds",
     )
+    stream_chunk_bytes: int = Field(
+        5 * 1024 * 1024,
+        validation_alias="STREAM_CHUNK_BYTES",
+        description="Size of alert chunks when streaming from S3",
+    )
     s3_endpoint_url: HttpUrl | None = Field(None, validation_alias="S3_ENDPOINT_URL")
     s3_bucket: str = Field("ampel-lsst-cutout-archive", validation_alias="S3_BUCKET")
     s3_insecure: bool = Field(False, validation_alias="S3_INSECURE")

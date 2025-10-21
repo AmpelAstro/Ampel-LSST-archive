@@ -142,7 +142,7 @@ async def get_blobs_with_condition(
     session: "AsyncSession",
     conditions: "Sequence[ColumnElement[bool] | bool]",
 ) -> AsyncGenerator[tuple[str, int, int, int], None]:
-    for blob in await session.execute(
+    async for blob in await session.stream(
         select(
             AvroBlob.uri,
             Alert.avro_blob_start,

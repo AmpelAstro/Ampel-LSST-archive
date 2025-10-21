@@ -1,8 +1,10 @@
 import base64
+import datetime
 import secrets
 from typing import TYPE_CHECKING, Annotated
 
 from fastapi import (
+    Depends,
     FastAPI,
     HTTPException,
     Query,
@@ -11,7 +13,7 @@ from fastapi import (
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import ORJSONResponse, StreamingResponse
 from sqlalchemy import delete
 from sqlmodel import select
 from zstd_asgi import ZstdMiddleware
@@ -27,7 +29,7 @@ from .db import (
     handle_querycancelederror,
 )
 from .models import AlertCutouts, AsyncResult
-from .s3 import Bucket
+from .s3 import Bucket, chunk_object
 from .settings import settings
 
 # from .tokens import (
@@ -319,46 +321,6 @@ async def get_alerts_in_cone(
     )
 
     return AsyncResult(resume_token=resume_token)
-
-
-@app.delete(
-    "/alerts/async_result/{resume_token}",
-    tags=["search"],
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def delete_async_result(resume_token: str, session: AsyncSession, bucket: Bucket):
-    group = (
-        await session.execute(
-            select(ResultGroup).filter(
-                ResultGroup.name == resume_token,  # type: ignore[arg-type]
-            )
-        )
-    ).scalar()
-    if group:
-        # bulk delete blobs from S3 in groups of 1000
-        async for uris in (
-            await session.stream_scalars(
-                select(ResultBlob.uri)
-                .filter(
-                    ResultBlob.group_id == group.id,  # type: ignore[arg-type]
-                )
-                .execution_options(yield_per=1000)
-            )
-        ).partitions():
-            response = await bucket.meta.client.delete_objects(
-                Bucket=bucket.name, Delete={"Objects": [{"Key": key} for key in uris]}
-            )
-            assert response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
-
-        await session.execute(
-            delete(ResultBlob).where(
-                ResultBlob.group_id == group.id,  # type: ignore[arg-type]
-            )
-        )
-        await session.delete(group)
-        await session.commit()
-    else:
-        raise HTTPException(status_code=404, detail="Async result not found")
 
 
 '''
@@ -727,95 +689,155 @@ def create_stream_from_query(
     tasks.add_task(create_stream)
 
     return {"resume_token": name, "chunk_size": query.chunk_size}
+'''
 
 
-def get_stream_info(resume_token: str, archive: ArchiveDB = Depends(get_archive)):
-    try:
-        info = archive.get_group_info(resume_token)
-    except GroupNotFoundError:
+async def get_group(resume_token: str, session: AsyncSession) -> ResultGroup:
+    group = await session.scalar(
+        select(ResultGroup).filter(
+            ResultGroup.name == resume_token,  # type: ignore[arg-type]
+        )
+    )
+    if not group:
         raise HTTPException(status_code=404, detail="Stream not found") from None
-    if info["error"] is None:
-        raise HTTPException(
-            status_code=status.HTTP_423_LOCKED,
-            detail={"msg": "queue-populating query has not yet finished"},
+    #     if info["error"] is None:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_423_LOCKED,
+    #             detail={"msg": "queue-populating query has not yet finished"},
+    #         )
+    #     if info["error"]:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_424_FAILED_DEPENDENCY,
+    #             detail={"msg": info["msg"]},
+    #         )
+    return group
+
+
+GroupFromToken = Annotated[ResultGroup, Depends(get_group)]
+
+
+async def get_blob(
+    chunk_id: int, session: AsyncSession, group: GroupFromToken
+) -> ResultBlob:
+    blob = await session.scalar(
+        select(ResultBlob).filter(
+            ResultBlob.group_id == group.id,  # type: ignore[arg-type]
+            ResultBlob.id == chunk_id,  # type: ignore[arg-type]
         )
-    if info["error"]:
-        raise HTTPException(
-            status_code=status.HTTP_424_FAILED_DEPENDENCY,
-            detail={"msg": info["msg"]},
-        )
-    return info
+    )
+    if not blob:
+        raise HTTPException(status_code=404, detail="Blob not found") from None
+    return blob
+
+
+BlobFromChunk = Annotated[ResultBlob, Depends(get_blob)]
 
 
 @app.get(
     "/stream/{resume_token}",
     tags=["stream"],
-    response_model=StreamDescription,
+    # response_model=StreamDescription,
     response_model_exclude_none=True,
     responses={
         status.HTTP_423_LOCKED: {"description": "Query has not finished"},
         status.HTTP_424_FAILED_DEPENDENCY: {"description": "Query failed"},
     },
 )
-def get_stream(resume_token: str, stream_info: GroupInfo = Depends(get_stream_info)):
-    """
-    Get the next available chunk of alerts from the given stream.
-    """
-    return {"resume_token": resume_token, **stream_info}
+def stream_get(group: GroupFromToken):
+    return {"resume_token": group.name}
 
 
 @app.get(
     "/stream/{resume_token}/chunk",
     tags=["stream"],
-    response_model=AlertChunk,
     response_model_exclude_none=True,
     responses={
         status.HTTP_423_LOCKED: {"description": "Query has not finished"},
         status.HTTP_424_FAILED_DEPENDENCY: {"description": "Query failed"},
     },
 )
-def stream_get_chunk(
-    resume_token: str,
-    with_history: bool = True,
-    archive: ArchiveDB = Depends(get_archive),
-    # piggy-back on stream info to raise errors on pending or errored queries
-    stream_info=Depends(get_stream_info),
+async def stream_claim_chunk(
+    session: AsyncSession,
+    group: GroupFromToken,
 ):
     """
     Get the next available chunk of alerts from the given stream. This chunk will
     be reserved until explicitly acknowledged.
     """
-    try:
-        chunk_id, alerts = archive.get_chunk_from_queue(resume_token, with_history)
-    except GroupNotFoundError:
-        raise HTTPException(status_code=404, detail="Stream not found") from None
-    info = get_stream_info(resume_token, archive)
-    return AlertChunk(
-        resume_token=resume_token,
-        chunk=chunk_id,
-        alerts=alerts,
-        remaining=info["remaining"],
-        pending=info["pending"],
+    blob = await session.scalar(
+        select(ResultBlob)
+        .filter(
+            ResultBlob.group_id == group.id,  # type: ignore[arg-type]
+            ResultBlob.issued.is_(None),  # type: ignore[union-attr]
+        )
+        .with_for_update(skip_locked=True)
+    )
+    if not blob:
+        raise HTTPException(
+            status_code=404, detail="No more chunks available"
+        ) from None
+    # FIXME: handle timezones
+    blob.issued = datetime.datetime.now()  # noqa: DTZ005
+    session.add(blob)
+
+    return {"resume_token": group.name, "chunk_id": blob.id}
+
+
+@app.get(
+    "/stream/{resume_token}/chunk/{chunk_id}",
+    tags=["stream"],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def stream_get_chunk(
+    blob: BlobFromChunk,
+    session: AsyncSession,
+    bucket: Bucket,
+) -> StreamingResponse:
+    """
+    Mark the given chunk as consumed.
+    """
+    obj = await bucket.Object(blob.uri)
+
+    return StreamingResponse(
+        chunk_object(obj, settings.stream_chunk_bytes),
+        media_type=await obj.content_type,
     )
 
 
-@app.post(
-    "/stream/{resume_token}/chunk/{chunk_id}/acknowledge",
+@app.delete(
+    "/stream/{resume_token}/chunk/{chunk_id}",
     tags=["stream"],
+    status_code=status.HTTP_204_NO_CONTENT,
 )
-def stream_acknowledge_chunk(
-    resume_token: str,
-    chunk_id: int,
-    archive: ArchiveDB = Depends(get_archive),
-    # piggy-back on stream info to raise errors on pending or errored queries
-    stream_info=Depends(get_stream_info),
+async def stream_delete_chunk(
+    blob: BlobFromChunk,
+    session: AsyncSession,
+    bucket: Bucket,
 ):
     """
     Mark the given chunk as consumed.
     """
-    archive.acknowledge_chunk_from_queue(resume_token, chunk_id)
+    await (await bucket.Object(blob.uri)).delete()
+    await session.delete(blob)
 
 
+@app.post(
+    "/stream/{resume_token}/chunk/{chunk_id}/release",
+    tags=["stream"],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def stream_release_chunk(
+    blob: BlobFromChunk,
+    session: AsyncSession,
+):
+    """
+    Mark the given chunk as unconsumed.
+    """
+    blob.issued = None
+    session.add(blob)
+
+
+'''
 @app.post(
     "/stream/{resume_token}/chunk/{chunk_id}/release",
     tags=["stream"],
@@ -832,6 +854,47 @@ def stream_release_chunk(
     """
     archive.release_chunk_from_queue(resume_token, chunk_id)
 '''
+
+
+@app.delete(
+    "/stream/{resume_token}",
+    tags=["stream"],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def stream_delete(resume_token: str, session: AsyncSession, bucket: Bucket):
+    group = (
+        await session.execute(
+            select(ResultGroup).filter(
+                ResultGroup.name == resume_token,  # type: ignore[arg-type]
+            )
+        )
+    ).scalar()
+    if group:
+        # bulk delete blobs from S3 in groups of 1000
+        async for uris in (
+            await session.stream_scalars(
+                select(ResultBlob.uri)
+                .filter(
+                    ResultBlob.group_id == group.id,  # type: ignore[arg-type]
+                )
+                .execution_options(yield_per=1000)
+            )
+        ).partitions():
+            response = await bucket.meta.client.delete_objects(
+                Bucket=bucket.name, Delete={"Objects": [{"Key": key} for key in uris]}
+            )
+            assert response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
+
+        await session.execute(
+            delete(ResultBlob).where(
+                ResultBlob.group_id == group.id,  # type: ignore[arg-type]
+            )
+        )
+        await session.delete(group)
+        await session.commit()
+    else:
+        raise HTTPException(status_code=404, detail="Async result not found")
+
 
 # If we are mounted under a (non-stripped) prefix path, create a potemkin root
 # router and mount the actual root as a sub-application. This has no effect

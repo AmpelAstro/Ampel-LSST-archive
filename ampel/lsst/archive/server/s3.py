@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urlsplit
 
@@ -10,7 +11,7 @@ from .settings import settings
 
 if TYPE_CHECKING:
     from types_aiobotocore_s3.service_resource import Bucket as _Bucket
-    from types_aiobotocore_s3.service_resource import S3ServiceResource
+    from types_aiobotocore_s3.service_resource import Object, S3ServiceResource
 
 
 @alru_cache(maxsize=1)
@@ -52,6 +53,19 @@ async def get_range(
     if response["ResponseMetadata"]["HTTPStatusCode"] <= 400:  # noqa: PLR2004
         return response["Body"]
     raise KeyError
+
+
+async def chunk_object(obj: "Object", chunk_length: int) -> AsyncGenerator[bytes, None]:
+    """Async generator to get file chunk."""
+
+    content_length = await obj.content_length
+
+    for offset in range(0, content_length, chunk_length):
+        end = min(offset + chunk_length - 1, content_length - 1)
+        response = await obj.get(Range=f"bytes={offset}-{end}")
+        assert response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
+        async with response["Body"] as stream:
+            yield await stream.read()
 
 
 def get_url_for_key(bucket: "_Bucket", key: str) -> str:

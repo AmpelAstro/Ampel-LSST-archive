@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import astropy.units as u
 from astropy_healpix import lonlat_to_healpix
 from sqlalchemy import BigInteger
@@ -39,6 +41,7 @@ class ResultGroup(SQLModel, table=True):
 
 class ResultBlob(BaseBlob, table=True):
     group_id: int = Field(foreign_key="resultgroup.id")
+    issued: datetime | None = Field(default=None)
 
 
 class Alert(SQLModel, table=True):
