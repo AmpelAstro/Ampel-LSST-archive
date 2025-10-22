@@ -13,14 +13,28 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession as _AsyncSession
 
-from .settings import settings
+from .settings import PostgresDsn, settings
+
+
+def uri_with_driver(driver: str) -> str:
+    uri = settings.archive_uri
+    scheme = f"{uri.scheme.split('+')[0]}+{driver}"
+    return str(
+        PostgresDsn.build(
+            scheme=scheme,
+            hosts=uri.hosts(),
+            path=uri.path[1:] if uri.path else None,
+            query=uri.query,
+            fragment=uri.fragment,
+        )
+    )
 
 
 @lru_cache(maxsize=1)
 def get_engine() -> AsyncEngine:
     timeout_ms = 1000 * settings.default_statement_timeout
     return create_async_engine(
-        str(settings.archive_uri),
+        uri_with_driver("asyncpg"),
         connect_args={"server_settings": {"statement_timeout": f"{timeout_ms}"}},
     )
 
