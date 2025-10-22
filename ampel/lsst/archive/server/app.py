@@ -1,5 +1,4 @@
 import base64
-import datetime
 import secrets
 from typing import TYPE_CHECKING, Annotated
 
@@ -18,13 +17,12 @@ from zstd_asgi import ZstdMiddleware
 
 from ampel.lsst.archive.db import get_alert_from_s3
 
-from ..db import store_search_results
+from ..db import populate_chunks
 from ..models import ResultGroup
 from ..queries import cone_search_condition, time_range_condition
 from .db import (
     AsyncSession,
     QueryCanceledError,
-    get_session,
     handle_querycancelederror,
 )
 from .models import AlertCutouts, AstropyTime
@@ -42,7 +40,7 @@ from .streams import router as stream_router
 # )
 
 if TYPE_CHECKING:
-    pass
+    from ..db import ColumnElement, Sequence
 
 
 DESCRIPTION = """
@@ -278,6 +276,23 @@ def get_alerts_in_time_range(
 '''
 
 
+async def group_from_query(
+    session: AsyncSession,
+    bucket: Bucket,
+    tasks: BackgroundTasks,
+    conditions: "Sequence[ColumnElement[bool]]",
+) -> ResultGroup:
+    resume_token = secrets.token_urlsafe(32)
+
+    group = ResultGroup(name=resume_token, chunk_size=1000)
+    session.add(group)
+    await session.flush()
+
+    tasks.add_task(populate_chunks, bucket, group, conditions)
+
+    return group
+
+
 @app.get(
     "/alerts/cone_search",
     tags=["search"],
@@ -298,34 +313,15 @@ async def get_alerts_in_cone(
     bucket: Bucket,
     tasks: BackgroundTasks,
 ) -> str:
-    conditions = [
-        *cone_search_condition(ra=ra, dec=dec, radius=radius),
-        *time_range_condition(start.mjd_tai(), end.mjd_tai()),
-    ]
-
-    resume_token = secrets.token_urlsafe(32)
-
-    group = ResultGroup(name=resume_token, chunk_size=1000)
-    session.add(group)
-    await session.flush()
-
-    async def populate_chunks():
-        async with get_session() as task_session:
-            try:
-                await store_search_results(
-                    task_session,
-                    bucket,
-                    group,
-                    conditions,
-                )
-                group.error = False
-                group.resolved = datetime.datetime.now(datetime.UTC)
-            except Exception as e:
-                group.error = True
-                group.msg = str(e)
-            task_session.add(group)
-
-    tasks.add_task(populate_chunks)
+    group = await group_from_query(
+        session,
+        bucket,
+        tasks,
+        [
+            *cone_search_condition(ra=ra, dec=dec, radius=radius),
+            *time_range_condition(start.mjd_tai(), end.mjd_tai()),
+        ],
+    )
 
     return f"{settings.root_path}/stream/{group.name}"
 

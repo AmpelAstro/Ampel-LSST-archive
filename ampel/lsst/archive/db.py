@@ -1,4 +1,5 @@
 import base64
+import datetime
 import hashlib
 import io
 import json
@@ -13,6 +14,7 @@ from sqlmodel import join, select
 
 from .avro import extract_record, pack_blocks, pack_records
 from .models import Alert, AvroBlob, AvroSchema, BaseBlob, ResultBlob, ResultGroup
+from .server.db import get_session
 from .server.s3 import get_range
 
 if TYPE_CHECKING:
@@ -206,6 +208,25 @@ async def store_search_results(
 
     if bodies:
         await flush()
+
+
+async def populate_chunks(
+    bucket: "Bucket", group: ResultGroup, conditions: "Sequence[ColumnElement[bool]]"
+):
+    async with get_session() as task_session:
+        try:
+            await store_search_results(
+                task_session,
+                bucket,
+                group,
+                conditions,
+            )
+            group.error = False
+            group.resolved = datetime.datetime.now(datetime.UTC)
+        except Exception as e:
+            group.error = True
+            group.msg = str(e)
+        task_session.add(group)
 
 
 async def get_alert_from_s3(
