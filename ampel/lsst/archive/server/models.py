@@ -1,8 +1,9 @@
 import math
 from base64 import b64encode
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
+from astropy.time import Time
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -41,6 +42,47 @@ class StreamDescription(BaseModel):
         default=None,
         description="Timestamp when query finished (null if still running)",
     )
+
+
+class AstropyTime(BaseModel):
+    """
+    A time representation compatible with astropy.time.Time
+    """
+
+    val: str | float | int
+    val2: None | float | int = None
+    format: None | str = None
+    scale: None | Literal["tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc"] = None
+    precision: None | int = None
+    in_subfmt: None | str = None
+    out_subfmt: None | str = None
+    location: None | tuple[float, float, float] = None
+
+    def to_astropy_time(self) -> Time:
+        return Time(
+            val=self.val,
+            val2=self.val2,
+            format=self.format,
+            scale=self.scale,
+            precision=self.precision,
+            in_subfmt=self.in_subfmt,
+            out_subfmt=self.out_subfmt,
+            location=self.location,
+        )
+
+    def mjd_tai(self) -> float:
+        return float(Time(self.to_astropy_time(), scale="tai").mjd)
+
+    @model_validator(mode="before")
+    def parse_astropy_time(cls, data: Any) -> Any:
+        if isinstance(data, str | float | int):
+            return {"val": data}
+        return data
+
+    @model_validator(mode="after")
+    def validate_astropy_time(self) -> Self:
+        self.to_astropy_time()
+        return self
 
 
 class Topic(BaseModel):

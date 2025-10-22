@@ -20,14 +20,14 @@ from ampel.lsst.archive.db import get_alert_from_s3
 
 from ..db import store_search_results
 from ..models import ResultGroup
-from ..queries import cone_search_condition
+from ..queries import cone_search_condition, time_range_condition
 from .db import (
     AsyncSession,
     QueryCanceledError,
     get_session,
     handle_querycancelederror,
 )
-from .models import AlertCutouts
+from .models import AlertCutouts, AstropyTime
 from .s3 import Bucket
 from .settings import settings
 from .streams import router as stream_router
@@ -292,26 +292,16 @@ async def get_alerts_in_cone(
         float, Query(description="Declination of field center in degrees (J2000)")
     ],
     radius: Annotated[float, Query(description="radius of search field in degrees")],
-    # jd_start: Annotated[float, Query(description="Earliest observation jd")],
-    # jd_end: Annotated[float, Query(description="Latest observation jd")],
-    # latest: bool = Query(
-    #     False, description="Return only the latest alert for each objectId"
-    # ),
-    # with_history: bool = False,
-    # chunk_size: int = Query(
-    #     100, gt=0, lte=10000, description="Number of alerts to return per page"
-    # ),
-    # resume_token: Optional[str] = Query(
-    #     None,
-    #     description="Identifier of a previous query to continue. This token expires after 24 hours.",
-    # ),
+    start: Annotated[AstropyTime, Query(description="Start time for the search")],
+    end: Annotated[AstropyTime, Query(description="End time for the search")],
     session: AsyncSession,
     bucket: Bucket,
     tasks: BackgroundTasks,
-    # auth: bool = Depends(verify_access_token),
-    # programid: Optional[int] = Depends(verify_authorized_programid),
 ) -> str:
-    conditions = cone_search_condition(ra=ra, dec=dec, radius=radius)
+    conditions = [
+        *cone_search_condition(ra=ra, dec=dec, radius=radius),
+        *time_range_condition(start.mjd_tai(), end.mjd_tai()),
+    ]
 
     resume_token = secrets.token_urlsafe(32)
 
