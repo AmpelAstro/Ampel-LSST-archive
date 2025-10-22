@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import (
     BackgroundTasks,
     FastAPI,
-    HTTPException,
     Query,
     status,
 )
@@ -15,11 +14,11 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse, RedirectResponse
 from zstd_asgi import ZstdMiddleware
 
-from ampel.lsst.archive.db import get_alert_from_s3
-
 from ..db import populate_chunks
 from ..models import ResultGroup
 from ..queries import cone_search_condition, time_range_condition
+from .alert import AlertFromId
+from .cutouts import fits_to_png
 from .db import (
     AsyncSession,
     QueryCanceledError,
@@ -104,59 +103,33 @@ app.exception_handler(QueryCanceledError)(handle_querycancelederror)
     # response_model=Alert,  # type: ignore[arg-type]
     # response_model_exclude_none=True,
 )
-async def get_alert(
-    diaSourceId: int,
-    session: AsyncSession,
-    bucket: Bucket,
-):
+async def get_alert(alert: AlertFromId):
     """
     Get a single alert by candidate id.
     """
-    if alert := await get_alert_from_s3(diaSourceId, session, bucket):
-        return jsonable_encoder(
-            alert, custom_encoder={bytes: lambda b: base64.b64encode(b).decode("utf-8")}
-        )
-    # if alert := db.get_alert(candid, with_history=True):
-    #     return alert
-    raise HTTPException(status.HTTP_404_NOT_FOUND)
+    return jsonable_encoder(
+        alert, custom_encoder={bytes: lambda b: base64.b64encode(b).decode("utf-8")}
+    )
 
 
 @app.get("/alert/{diaSourceId}/cutouts", tags=["cutouts"], response_model=AlertCutouts)
-async def get_cutouts(
-    diaSourceId: int,
-    session: AsyncSession,
-    bucket: Bucket,
-):
-    if alert := await get_alert_from_s3(diaSourceId, session, bucket):
-        return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
-    raise HTTPException(status_code=404)
+async def get_cutouts(alert: AlertFromId):
+    return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
 
 
-try:
-    from .cutouts import fits_to_png
-
-    @app.get(
-        "/alert/{diaSourceId}/cutouts/png",
-        tags=["cutouts"],
-        response_model=AlertCutouts,
-    )
-    async def get_cutouts_png(
-        diaSourceId: int,
-        session: AsyncSession,
-        bucket: Bucket,
-    ):
-        """
-        Get cutouts as PNG images
-        """
-        if alert := await get_alert_from_s3(diaSourceId, session, bucket):
-            for k in "cutoutTemplate", "cutoutScience", "cutoutDifference":
-                if alert[k] is not None:
-                    alert[k] = fits_to_png(alert[k])
-            return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
-        raise HTTPException(status_code=404)
-
-except ImportError:
-    ...
+@app.get(
+    "/alert/{diaSourceId}/cutouts/png",
+    tags=["cutouts"],
+    response_model=AlertCutouts,
+)
+async def get_cutouts_png(alert: AlertFromId):
+    """
+    Get cutouts as PNG images
+    """
+    for k in "cutoutTemplate", "cutoutScience", "cutoutDifference":
+        if alert[k] is not None:
+            alert[k] = fits_to_png(alert[k])
+    return AlertCutouts(diaObjectId=alert["diaObject"]["diaObjectId"], **alert)
 
 
 '''

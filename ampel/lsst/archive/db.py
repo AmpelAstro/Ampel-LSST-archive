@@ -1,7 +1,6 @@
 import base64
 import datetime
 import hashlib
-import io
 import json
 from collections.abc import AsyncGenerator, Callable, Sequence
 from typing import TYPE_CHECKING, Any
@@ -12,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import join, select
 
-from .avro import extract_record, pack_blocks, pack_records
+from .avro import pack_blocks, pack_records
 from .models import Alert, AvroBlob, AvroSchema, BaseBlob, ResultBlob, ResultGroup
 from .server.db import get_session
 from .server.s3 import get_range
@@ -227,23 +226,3 @@ async def populate_chunks(
             group.error = True
             group.msg = str(e)
         task_session.add(group)
-
-
-async def get_alert_from_s3(
-    id: int,
-    session: "AsyncSession",
-    bucket: "Bucket",
-) -> dict | None:
-    async for uri, start, end, schema_id in get_blobs_with_condition(
-        session,
-        [Alert.id == id],
-    ):
-        schema = await get_schema(session, schema_id)
-        body = await get_range(bucket, uri, start, end)
-        try:
-            record = extract_record(io.BytesIO(await body.read()), schema)
-        except KeyError:
-            return None
-        assert isinstance(record, dict)
-        return record
-    return None
