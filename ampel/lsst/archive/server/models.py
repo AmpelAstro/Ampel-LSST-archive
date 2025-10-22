@@ -21,20 +21,26 @@ class StrictModel(BaseModel):
 
 
 class Stream(BaseModel):
-    resume_token: str
+    path: str
     chunk_size: int
 
 
 class ChunkCount(BaseModel):
     items: int
     chunks: int
+    bytes: int
 
 
-class StreamDescription(Stream):
-    remaining: ChunkCount
-    pending: ChunkCount
-    started_at: datetime
-    finished_at: datetime | None = None
+class StreamDescription(BaseModel):
+    post: str = Field(description="URL to post to in order to get the next chunk")
+    chunk_size: int
+    remaining: ChunkCount = Field(description="Unconsumed items")
+    pending: ChunkCount = Field(description="Items reserved but not yet consumed")
+    started_at: datetime = Field(description="Timestamp when query was issued")
+    finished_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when query finished (null if still running)",
+    )
 
 
 class Topic(BaseModel):
