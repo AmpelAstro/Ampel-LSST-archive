@@ -170,12 +170,12 @@ def make_cutout_plots(cutouts: dict[str, bytes]):
     return fig
 
 
-def render_cutout_plots(fits: dict[str, bytes]) -> str:
+def render_cutout_plots(fits: dict[str, bytes]) -> bytes:
     fig = make_cutout_plots(fits)
     try:
         with io.BytesIO() as buf:
             fig.savefig(buf, format="svg")
-            return buf.getvalue().decode()
+            return buf.getvalue()
     finally:
         fig.clear()
         plt.close(fig)

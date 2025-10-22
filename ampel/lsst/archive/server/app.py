@@ -24,6 +24,7 @@ from .db import (
     QueryCanceledError,
     handle_querycancelederror,
 )
+from .display import router as display_router
 from .models import AlertCutouts, AstropyTime
 from .s3 import Bucket
 from .settings import settings
@@ -93,6 +94,7 @@ app.add_middleware(
 )
 
 app.include_router(stream_router, prefix="/stream")
+app.include_router(display_router, prefix="/display")
 
 app.exception_handler(QueryCanceledError)(handle_querycancelederror)
 
