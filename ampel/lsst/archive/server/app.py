@@ -794,8 +794,7 @@ async def stream_claim_chunk(
         raise HTTPException(
             status_code=404, detail="No more chunks available"
         ) from None
-    # FIXME: handle timezones
-    blob.issued = datetime.datetime.now()  # noqa: DTZ005
+    blob.issued = datetime.datetime.now(datetime.UTC)
     session.add(blob)
 
     return {"resume_token": group.name, "chunk_id": blob.id}

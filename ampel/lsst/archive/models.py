@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import astropy.units as u
 from astropy_healpix import lonlat_to_healpix
-from sqlalchemy import BigInteger
+from sqlalchemy import TIMESTAMP, BigInteger
 from sqlmodel import Field, SQLModel
 
 NSIDE = 1 << 16
@@ -39,11 +39,15 @@ class ResultGroup(SQLModel, table=True):
     chunk_size: int
     error: None | bool = Field(default=None)
     msg: None | str = Field(default=None)
+    created: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), sa_type=TIMESTAMP(timezone=True)
+    )
+    resolved: None | datetime = Field(default=None, sa_type=TIMESTAMP(timezone=True))
 
 
 class ResultBlob(BaseBlob, table=True):
     group_id: int = Field(foreign_key="resultgroup.id")
-    issued: datetime | None = Field(default=None)
+    issued: datetime | None = Field(default=None, sa_type=TIMESTAMP(timezone=True))
 
 
 class Alert(SQLModel, table=True):
