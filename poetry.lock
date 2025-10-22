@@ -266,6 +266,25 @@ typing-extensions = ">=4.12"
 tz = ["tzdata"]
 
 [[package]]
+name = "alembic-utils"
+version = "0.8.8"
+description = "A sqlalchemy/alembic extension for migrating procedures and views"
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "alembic_utils-0.8.8-py3-none-any.whl", hash = "sha256:2c2545dc545833c5deb63bce2c3cde01c1807bf99da5efab2497bc8d817cb86e"},
+    {file = "alembic_utils-0.8.8.tar.gz", hash = "sha256:99de5d13194f26536bc0322f0c1660020a305015700d8447ccfc20e7d1494e5b"},
+]
+
+[package.dependencies]
+alembic = ">=1.9"
+flupy = "*"
+parse = ">=1.8.4"
+sqlalchemy = ">=1.4"
+typing_extensions = ">=0.1.0"
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 description = "Reusable constraint types to use with typing.Annotated"
@@ -1427,6 +1446,21 @@ codecs = ["cramjam", "lz4", "zstandard"]
 lz4 = ["lz4"]
 snappy = ["cramjam"]
 zstandard = ["zstandard"]
+
+[[package]]
+name = "flupy"
+version = "1.2.3"
+description = "Fluent data processing in Python - a chainable stream processing library for expressive data manipulation using method chaining"
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "flupy-1.2.3-py3-none-any.whl", hash = "sha256:be0f5a393bad2b3534697fbab17081993cd3f5817169dd3a61e8b2e0887612e6"},
+    {file = "flupy-1.2.3.tar.gz", hash = "sha256:220b6d40dea238cd2d66784c0d4d2a5483447a48acd343385768e0c740af9609"},
+]
+
+[package.dependencies]
+typing_extensions = ">=4"
 
 [[package]]
 name = "fonttools"
@@ -2679,6 +2713,18 @@ groups = ["main", "dev"]
 files = [
     {file = "packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484"},
     {file = "packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f"},
+]
+
+[[package]]
+name = "parse"
+version = "1.20.2"
+description = "parse() is the opposite of format()"
+optional = false
+python-versions = "*"
+groups = ["dev"]
+files = [
+    {file = "parse-1.20.2-py2.py3-none-any.whl", hash = "sha256:967095588cb802add9177d0c0b6133b5ba33b1ea9007ca800e526f42a85af558"},
+    {file = "parse-1.20.2.tar.gz", hash = "sha256:b41d604d16503c79d81af5165155c0b20f6c8d6c559efa66b4b695c3e5a0a0ce"},
 ]
 
 [[package]]
@@ -5170,4 +5216,4 @@ image = ["matplotlib", "scipy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "353bcbb56826ca77b075adc4ece7ca443ede54f58e2f0783a86bbee55a3a22ca"
+content-hash = "8fad53d1ff5571943e28fdfeb9c84101458abfee66edf097ff97465f0b959547"

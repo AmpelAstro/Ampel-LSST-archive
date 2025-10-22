@@ -62,6 +62,7 @@ scipy-stubs = "^1.16.2.4"
 types-aioboto3 = {version = "^15.4.0", extras = ["s3"]}
 asyncpg-stubs = "^0.30.2"
 alembic = "^1.17.0"
+alembic-utils = "^0.8.8"
 
 [tool.poetry.scripts]
 update-lsst-archive = 'ampel.lsst.archive.update:run'
