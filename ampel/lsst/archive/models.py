@@ -7,7 +7,10 @@ from sqlalchemy import TIMESTAMP, BigInteger
 from sqlmodel import Field, SQLModel
 
 if TYPE_CHECKING:
+    from .alert_packet import MPCORB
     from .alert_packet import Alert as LSSTAlert
+    from .alert_packet import DIAObject as DIA
+    from .alert_packet import SSSource as SSS
 
 NSIDE = 1 << 16
 
@@ -62,7 +65,12 @@ class Alert(SQLModel, table=True):
     id: int = Field(
         default=None, primary_key=True, sa_type=BigInteger, description="diaSourceId"
     )
-    object_id: int = Field(sa_type=BigInteger, description="diaObjectId")
+    diaobject_id: int = Field(
+        sa_type=BigInteger, description="diaObjectId", foreign_key="diaobject.id"
+    )
+    ssobject_id: int = Field(
+        sa_type=BigInteger, description="ssObjectId", foreign_key="ssobject.id"
+    )
     midpointMjdTai: float
     ra: float
     dec: float
@@ -72,13 +80,14 @@ class Alert(SQLModel, table=True):
     avro_blob_end: int
 
     @classmethod
-    def from_alert_packet(
+    def from_record(
         cls, alert: "LSSTAlert", blob_id: int, blob_start: int, blob_end: int
     ) -> "Alert":
         diaSource = alert["diaSource"]
         return cls(
             id=diaSource["diaSourceId"],
-            object_id=diaSource["diaObjectId"],
+            diaobject_id=diaSource["diaObjectId"] or None,
+            ssobject_id=diaSource["ssObjectId"] or None,
             midpointMjdTai=diaSource["midpointMjdTai"],
             ra=diaSource["ra"],
             dec=diaSource["dec"],
@@ -93,4 +102,59 @@ class Alert(SQLModel, table=True):
             avro_blob_id=blob_id,
             avro_blob_start=blob_start,
             avro_blob_end=blob_end,
+        )
+
+
+class DIAObject(SQLModel, table=True):
+    """
+    SQLModel class for the DIAObject table.
+    """
+
+    id: int = Field(
+        default=None, primary_key=True, sa_type=BigInteger, description="diaObjectId"
+    )
+    validityStartMjdTai: float
+    firstDiaSourceMjdTai: float | None
+    lastDiaSourceMjdTai: float | None
+    nDiaSources: int
+    ra: float
+    dec: float
+    hpx: int = Field(..., sa_type=BigInteger)
+
+    @classmethod
+    def from_record(cls, diaobject: "DIA") -> "DIAObject":
+        return cls(
+            id=diaobject["diaObjectId"],
+            validityStartMjdTai=diaobject["validityStartMjdTai"],
+            firstDiaSourceMjdTai=diaobject["firstDiaSourceMjdTai"],
+            lastDiaSourceMjdTai=diaobject["lastDiaSourceMjdTai"],
+            nDiaSources=diaobject["nDiaSources"],
+            ra=diaobject["ra"],
+            dec=diaobject["dec"],
+            hpx=int(
+                lonlat_to_healpix(
+                    diaobject["ra"] * u.deg,
+                    diaobject["dec"] * u.deg,
+                    nside=NSIDE,
+                    order="nested",
+                )
+            ),
+        )
+
+
+class SSObject(SQLModel, table=True):
+    """
+    SQLModel class for the SSObject table.
+    """
+
+    id: int = Field(
+        default=None, primary_key=True, sa_type=BigInteger, description="ssSourceId"
+    )
+    designation: str | None = Field(default=None, description="MPC designation")
+
+    @classmethod
+    def from_record(cls, sssource: "SSS", mpcorb: "None | MPCORB") -> "SSObject":
+        return cls(
+            id=sssource["ssObjectId"],
+            designation=mpcorb["mpcDesignation"] if mpcorb is not None else None,
         )

@@ -3,16 +3,27 @@ import datetime
 import hashlib
 import json
 from collections.abc import AsyncGenerator, Callable, Sequence
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 import fastavro
 from fastavro.types import Schema
+from sqlalchemy import Insert
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import join, select
+from sqlmodel import join, or_, select
 
 from .avro import pack_blocks, pack_records
-from .models import Alert, AvroBlob, AvroSchema, BaseBlob, ResultBlob, ResultGroup
+from .models import (
+    Alert,
+    AvroBlob,
+    AvroSchema,
+    BaseBlob,
+    DIAObject,
+    ResultBlob,
+    ResultGroup,
+    SSObject,
+)
 from .server.db import get_session
 from .server.s3 import get_range
 
@@ -83,6 +94,47 @@ async def store_alert_chunk(
     return obj
 
 
+@cache
+def _insert_alerts() -> Insert:
+    stmt = insert(Alert)
+    return stmt.on_conflict_do_update(
+        index_elements=[
+            Alert.id,  # type: ignore[list-item]
+        ],
+        set_={
+            k: stmt.excluded[k]
+            for k in (
+                "avro_blob_id",
+                "avro_blob_start",
+                "avro_blob_end",
+                "diaobject_id",
+                "ssobject_id",
+            )
+        },
+    )
+
+
+@cache
+def _insert_diaobjects() -> Insert:
+    stmt = insert(DIAObject)
+    return stmt.on_conflict_do_update(
+        index_elements=[
+            DIAObject.id,  # type: ignore[list-item]
+        ],
+        set_={k: stmt.excluded[k] for k in DIAObject.__pydantic_fields__},
+        where=or_(
+            DIAObject.nDiaSources.is_(None),
+            stmt.excluded["nDiaSources"] > DIAObject.nDiaSources,
+        ),
+    )
+
+
+@cache
+def _insert_ssobjects() -> Insert:
+    stmt = insert(SSObject)
+    return stmt.on_conflict_do_nothing()
+
+
 async def insert_alert_chunk(
     engine: "AsyncEngine",
     bucket: "Bucket",
@@ -110,23 +162,28 @@ async def insert_alert_chunk(
         obj = await store_alert_chunk(bucket, session, blob_record, blob)
 
         try:
-            insert_stmt = insert(Alert)
-            stmt = insert_stmt.on_conflict_do_update(
-                index_elements=[
-                    Alert.id,  # type: ignore[list-item]
+            await session.execute(
+                _insert_diaobjects(),
+                params=[
+                    DIAObject.from_record(record).model_dump()
+                    for alert in alerts
+                    if (record := alert.get("diaObject")) is not None
                 ],
-                set_={
-                    k: insert_stmt.excluded[k]
-                    for k in ("avro_blob_id", "avro_blob_start", "avro_blob_end")
-                },
             )
 
             await session.execute(
-                stmt,
+                _insert_ssobjects(),
                 params=[
-                    Alert.from_alert_packet(
-                        alert, blob_record.id, start, end
-                    ).model_dump()
+                    SSObject.from_record(record, alert["MPCORB"]).model_dump()
+                    for alert in alerts
+                    if (record := alert.get("ssSource")) is not None
+                ],
+            )
+
+            await session.execute(
+                _insert_alerts(),
+                params=[
+                    Alert.from_record(alert, blob_record.id, start, end).model_dump()
                     for alert, (start, end) in zip(alerts, ranges, strict=True)
                 ],
             )
