@@ -137,10 +137,12 @@ def make_cutout_plots(
         # show pixels below significance threshold in desaturated colormap
         if significance_threshold is not None:
             ax.imshow(img, origin="lower", norm=norm, cmap=desaturate(cmap))
+            bg_color = desaturate(cmap)(0)
             color_img = np.ma.masked_array(
                 img, mask=np.abs(img / np.sqrt(variance)) < significance_threshold
             )
         else:
+            bg_color = plt.get_cmap(cmap)(0)
             color_img = img
 
         axes_image = ax.imshow(
@@ -177,7 +179,7 @@ def make_cutout_plots(
             )
         # label cutout type
         text = AnchoredText(k, loc="upper left", prop=dict(color="white"))
-        text.patch.set_facecolor(axes_image.get_cmap()(0))
+        text.patch.set_facecolor(bg_color)
         text.patch.set_edgecolor("none")
         text.patch.set_boxstyle("round,pad=0.1,rounding_size=0.2")
         ax.add_artist(text)
