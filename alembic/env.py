@@ -56,7 +56,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    online_config = config.get_section(config.config_ini_section)
+    online_config = config.get_section(config.config_ini_section, {})
     if url := os.environ.get("ARCHIVE_URI"):
         online_config["sqlalchemy.url"] = url
     connectable = engine_from_config(
