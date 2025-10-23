@@ -1,10 +1,14 @@
 import os
+from logging import getLogger
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from ampel.lsst.archive import models as _models
+
+logger = getLogger("alembic.runtime.migration")
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -68,8 +72,11 @@ def run_migrations_online() -> None:
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
 
-        with context.begin_transaction():
+        with context.begin_transaction() as transaction:
             context.run_migrations()
+            if "dry-run" in context.get_x_argument():
+                logger.warning("Dry-run succeeded; now rolling back transaction...")
+                transaction.rollback()
 
 
 if context.is_offline_mode():
