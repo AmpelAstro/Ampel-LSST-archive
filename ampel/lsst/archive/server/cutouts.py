@@ -13,6 +13,8 @@ from matplotlib.patches import Ellipse
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from scipy import ndimage
 
+from .colormaps import desaturate
+
 
 def strip_extra_hdus(cutout_data: bytes) -> bytes:
     """
@@ -110,7 +112,11 @@ def get_halfmax_ellipse(flux: fits.PrimaryHDU, psf: fits.ImageHDU) -> EllipsePar
     }
 
 
-def make_cutout_plots(cutouts: dict[str, bytes]):
+def make_cutout_plots(
+    cutouts: dict[str, bytes],
+    significance_threshold: None | float = 3.0,
+    cmap="viridis",
+) -> Figure:
     shrink = 1 / 1.2
 
     fig, axes = plt.subplots(
@@ -124,14 +130,25 @@ def make_cutout_plots(cutouts: dict[str, bytes]):
     for (k, v), ax in zip(cutouts.items(), axes, strict=False):
         hdus = fits.open(io.BytesIO(v))
         img = hdus[0].data
+        variance = hdus[1].data
 
-        mask = np.isfinite(img)
+        norm = Normalize(*np.percentile(img[np.isfinite(img)], [0.5, 99.5]))
+
+        # show pixels below significance threshold in desaturated colormap
+        if significance_threshold is not None:
+            ax.imshow(img, origin="lower", norm=norm, cmap=desaturate(cmap))
+            color_img = np.ma.masked_array(
+                img, mask=np.abs(img / np.sqrt(variance)) < significance_threshold
+            )
+        else:
+            color_img = img
+
         axes_image = ax.imshow(
-            img,
+            color_img,
             origin="lower",
-            cmap="viridis",
+            cmap=cmap,
             # clip pixel values below the median
-            norm=Normalize(*np.percentile(img[mask], [0.5, 99.5])),
+            norm=norm,
         )
         ax.set_axis_off()
 
@@ -170,8 +187,10 @@ def make_cutout_plots(cutouts: dict[str, bytes]):
     return fig
 
 
-def render_cutout_plots(fits: dict[str, bytes]) -> bytes:
-    fig = make_cutout_plots(fits)
+def render_cutout_plots(
+    fits: dict[str, bytes], significance_threshold: None | float = 3.0
+) -> bytes:
+    fig = make_cutout_plots(fits, significance_threshold=significance_threshold)
     try:
         with io.BytesIO() as buf:
             fig.savefig(buf, format="svg")

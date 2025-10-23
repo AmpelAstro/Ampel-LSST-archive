@@ -1,5 +1,8 @@
+from typing import Annotated
+
 from fastapi import (
     APIRouter,
+    Query,
     status,
 )
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -16,13 +19,16 @@ router = APIRouter(tags=["display"])
 @router.get(
     "/alert/{diaSourceId}/cutouts",
 )
-def display_cutouts(alert: AlertFromId):
+def display_cutouts(
+    alert: AlertFromId, sigma: Annotated[None | float, Query(ge=0)] = None
+):
     return PlainTextResponse(
         render_cutout_plots(
             {
                 k: alert[f"cutout{k.capitalize()}"]
                 for k in ["template", "science", "difference"]
-            }
+            },
+            significance_threshold=sigma,
         ),
         media_type="image/svg+xml",
     )
@@ -39,6 +45,6 @@ async def rien_de_la_plus(
         text("select id from alert TABLESAMPLE system_rows(1)")
     )
     return RedirectResponse(
-        url=f"{settings.root_path}/display/alert/{diaSourceId}/cutouts",
+        url=f"{settings.root_path}/display/alert/{diaSourceId}/cutouts?sigma=3",
         status_code=status.HTTP_303_SEE_OTHER,
     )

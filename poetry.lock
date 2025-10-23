@@ -997,6 +997,21 @@ files = [
 markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win32\""}
 
 [[package]]
+name = "colorspacious"
+version = "1.1.2"
+description = "A powerful, accurate, and easy-to-use Python library for doing colorspace conversions"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "colorspacious-1.1.2-py2.py3-none-any.whl", hash = "sha256:c78befa603cea5dccb332464e7dd29e96469eebf6cd5133029153d1e69e3fd6f"},
+    {file = "colorspacious-1.1.2.tar.gz", hash = "sha256:5e9072e8cdca889dac445c35c9362a22ccf758e97b00b79ff0d5a7ba3e11b618"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "confluent-kafka"
 version = "2.12.1"
 description = "Confluent's Python client for Apache Kafka"
@@ -5216,4 +5231,4 @@ image = ["matplotlib", "scipy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "8fad53d1ff5571943e28fdfeb9c84101458abfee66edf097ff97465f0b959547"
+content-hash = "f823fe4b6b262a0b698e15819ca70a749f95b9a562a96a4ea8835e1eb846209e"
