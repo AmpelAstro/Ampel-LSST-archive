@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from sqlalchemy.sql.elements import ColumnElement
     from types_aiobotocore_s3.service_resource import Object
 
+    from .alert_packet import Alert as LSSTAlert
     from .server.s3 import Bucket
 
 
@@ -87,7 +88,7 @@ async def insert_alert_chunk(
     bucket: "Bucket",
     schema_id: int,
     key: str,
-    alerts: Sequence[dict],
+    alerts: "Sequence[LSSTAlert]",
     on_complete: None | Callable[[], Any] = None,
 ):
     async with (

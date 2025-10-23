@@ -1,7 +1,7 @@
 import io
 from collections.abc import Iterable
 from os import urandom
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 import fastavro
 from fastavro import writer
@@ -34,7 +34,7 @@ def extract_record(
 
 
 def pack_records(
-    schema: "Schema", records: Iterable[dict], codec: str = "zstandard"
+    schema: "Schema", records: Iterable[Any], codec: str = "zstandard"
 ) -> tuple[bytes, list[tuple[int, int]]]:
     # reserialize into schemafull format with one record per block
     with io.BytesIO() as buf:

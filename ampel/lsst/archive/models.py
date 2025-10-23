@@ -1,9 +1,13 @@
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import astropy.units as u
 from astropy_healpix import lonlat_to_healpix
 from sqlalchemy import TIMESTAMP, BigInteger
 from sqlmodel import Field, SQLModel
+
+if TYPE_CHECKING:
+    from .alert_packet import Alert as LSSTAlert
 
 NSIDE = 1 << 16
 
@@ -69,7 +73,7 @@ class Alert(SQLModel, table=True):
 
     @classmethod
     def from_alert_packet(
-        cls, alert: dict, blob_id: int, blob_start: int, blob_end: int
+        cls, alert: "LSSTAlert", blob_id: int, blob_start: int, blob_end: int
     ) -> "Alert":
         diaSource = alert["diaSource"]
         return cls(
