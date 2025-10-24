@@ -65,10 +65,10 @@ class Alert(SQLModel, table=True):
     id: int = Field(
         default=None, primary_key=True, sa_type=BigInteger, description="diaSourceId"
     )
-    diaobject_id: int = Field(
+    diaobject_id: int | None = Field(
         sa_type=BigInteger, description="diaObjectId", foreign_key="diaobject.id"
     )
-    ssobject_id: int = Field(
+    ssobject_id: int | None = Field(
         sa_type=BigInteger, description="ssObjectId", foreign_key="ssobject.id"
     )
     midpointMjdTai: float
@@ -84,10 +84,11 @@ class Alert(SQLModel, table=True):
         cls, alert: "LSSTAlert", blob_id: int, blob_start: int, blob_end: int
     ) -> "Alert":
         diaSource = alert["diaSource"]
+        ssSource = alert["ssSource"]
         return cls(
             id=diaSource["diaSourceId"],
             diaobject_id=diaSource["diaObjectId"] or None,
-            ssobject_id=diaSource["ssObjectId"] or None,
+            ssobject_id=ssSource["ssObjectId"] if ssSource is not None else None,
             midpointMjdTai=diaSource["midpointMjdTai"],
             ra=diaSource["ra"],
             dec=diaSource["dec"],
