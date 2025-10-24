@@ -67,9 +67,12 @@ async def get_alerts_with_condition(
         session, conditions
     ):
         schema = await get_schema(session, schema_id)
-        body = await get_range(bucket, uri, start, end)
-        record = extract_record(io.BytesIO(await body.read()), schema)
-        yield cast(LSSTAlert, record)
+        try:
+            body = await get_range(bucket, uri, start, end)
+            record = extract_record(io.BytesIO(await body.read()), schema)
+            yield cast(LSSTAlert, record)
+        except KeyError:
+            continue
 
 
 @router.get("/diaobject/{diaObjectId}")
