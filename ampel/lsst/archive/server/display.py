@@ -80,7 +80,7 @@ async def get_alerts_for_diaobject(
     diaObjectId: int,
     session: AsyncSession,
     bucket: Bucket,
-):
+) -> list[LSSTAlert]:
     return [
         alert
         async for alert in get_alerts_with_condition(
@@ -94,7 +94,7 @@ async def get_alerts_for_ssobject(
     ssObjectId: int,
     session: AsyncSession,
     bucket: Bucket,
-):
+) -> list[LSSTAlert]:
     return [
         alert
         async for alert in get_alerts_with_condition(
