@@ -1,6 +1,18 @@
 # generated with avro-to-python-types
 
-from typing import TypedDict
+from base64 import b64encode
+from typing import Annotated, TypedDict
+
+from pydantic import PlainSerializer
+
+# NB: ser_json_bytes="base64" uses a URL-safe alphabet, whereas b64encode
+# uses +/ to represent 62 and 63. Use a serialization function to emit
+# strings that can be properly decoded with b64decode. See:
+# https://github.com/pydantic/pydantic/issues/7000
+Base64Bytes = Annotated[
+    bytes,
+    PlainSerializer(lambda v: b64encode(v).decode(), return_type=str, when_used="json"),
+]
 
 
 class LsstV9_0DiaSource(TypedDict):
@@ -258,6 +270,6 @@ class LsstV9_0Alert(TypedDict):
     diaObject: LsstV9_0DiaObject | None
     ssSource: LsstV9_0SsSource | None
     MPCORB: LsstV9_0MPCORB | None
-    cutoutDifference: bytes | None
-    cutoutScience: bytes | None
-    cutoutTemplate: bytes | None
+    cutoutDifference: Base64Bytes | None
+    cutoutScience: Base64Bytes | None
+    cutoutTemplate: Base64Bytes | None

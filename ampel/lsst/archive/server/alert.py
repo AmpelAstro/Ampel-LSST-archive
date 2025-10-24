@@ -1,8 +1,9 @@
 import io
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import Depends, HTTPException, status
 
+from ..alert_packet import Alert as LSSTAlert
 from ..avro import extract_record
 from ..db import get_blobs_with_condition, get_schema
 from ..models import Alert
@@ -24,11 +25,10 @@ async def get_alert_from_s3(
         schema = await get_schema(session, schema_id)
         body = await get_range(bucket, uri, start, end)
         record = extract_record(io.BytesIO(await body.read()), schema)
-        assert isinstance(record, dict)
-        return record
+        return cast(LSSTAlert, record)
     raise HTTPException(
         status.HTTP_404_NOT_FOUND, detail={"msg": f"{diaSourceId=} not found"}
     )
 
 
-AlertFromId = Annotated[dict, Depends(get_alert_from_s3)]
+AlertFromId = Annotated[LSSTAlert, Depends(get_alert_from_s3)]
