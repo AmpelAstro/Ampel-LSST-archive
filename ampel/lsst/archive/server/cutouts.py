@@ -14,6 +14,7 @@ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from scipy import ndimage
 
 from .colormaps import desaturate
+from .metrics import REQ_TIME
 
 
 def strip_extra_hdus(cutout_data: bytes) -> bytes:
@@ -112,6 +113,7 @@ def get_halfmax_ellipse(flux: fits.PrimaryHDU, psf: fits.ImageHDU) -> EllipsePar
     }
 
 
+@REQ_TIME.labels("make_cutout_plots").time()
 def make_cutout_plots(
     cutouts: dict[str, bytes],
     significance_threshold: None | float = 3.0,
@@ -189,6 +191,7 @@ def make_cutout_plots(
     return fig
 
 
+@REQ_TIME.labels("render_cutout_plots").time()
 def render_cutout_plots(
     fits: dict[str, bytes], significance_threshold: None | float = 3.0
 ) -> bytes:
