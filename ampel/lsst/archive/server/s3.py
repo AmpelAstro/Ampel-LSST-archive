@@ -6,7 +6,9 @@ import aioboto3
 from aiobotocore.response import StreamingBody
 from async_lru import alru_cache
 from fastapi import Depends
+from prometheus_async.aio import time
 
+from .metrics import REQ_TIME
 from .settings import settings
 
 if TYPE_CHECKING:
@@ -42,6 +44,7 @@ async def get_stream(bucket: "_Bucket", key: str) -> "StreamingBody":
     raise KeyError
 
 
+@time(REQ_TIME.labels("get_range"))
 async def get_range(
     bucket: "_Bucket", key: str, start: int, end: int
 ) -> "StreamingBody":

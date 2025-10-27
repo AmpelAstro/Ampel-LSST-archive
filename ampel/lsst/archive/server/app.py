@@ -10,6 +10,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse, RedirectResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 from zstd_asgi import ZstdMiddleware
 
 from ..alert_packet import Alert as LSSTAlert
@@ -655,6 +656,10 @@ def create_stream_from_query(
     return {"resume_token": name, "chunk_size": query.chunk_size}
 '''
 
+# Collect metrics for all endpoints except /metrics
+instrumentator = Instrumentator(
+    excluded_handlers=["/metrics"],
+).instrument(app)
 
 # If we are mounted under a (non-stripped) prefix path, create a potemkin root
 # router and mount the actual root as a sub-application. This has no effect
@@ -663,3 +668,6 @@ if settings.root_path:
     wrapper = FastAPI()
     wrapper.mount(settings.root_path, app)
     app = wrapper
+
+# Expose metrics at the root
+instrumentator.expose(app)
