@@ -2,6 +2,7 @@ import io
 from typing import Annotated, cast
 
 from fastapi import Depends, HTTPException, status
+from prometheus_async.aio import time
 
 from ..alert_packet import Alert as LSSTAlert
 from ..avro import extract_record
@@ -10,9 +11,11 @@ from ..models import Alert
 from .db import (
     AsyncSession,
 )
+from .metrics import REQ_TIME
 from .s3 import Bucket, get_range
 
 
+@time(REQ_TIME.labels("get_alert_from_s3"))
 async def get_alert_from_s3(
     diaSourceId: int,
     session: AsyncSession,
@@ -24,7 +27,8 @@ async def get_alert_from_s3(
     ):
         schema = await get_schema(session, schema_id)
         body = await get_range(bucket, uri, start, end)
-        record = extract_record(io.BytesIO(await body.read()), schema)
+        content = await time(REQ_TIME.labels("read_body"))(body.read)()
+        record = extract_record(io.BytesIO(content), schema)
         return cast(LSSTAlert, record)
     raise HTTPException(
         status.HTTP_404_NOT_FOUND, detail={"msg": f"{diaSourceId=} not found"}
