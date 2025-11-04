@@ -11,6 +11,7 @@ from matplotlib.figure import Figure
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.patches import Ellipse
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from plotly import graph_objects as go
 from scipy import ndimage
 
 from .colormaps import desaturate
@@ -188,6 +189,123 @@ def make_cutout_plots(
 
         # add colorbar
         plt.colorbar(axes_image, orientation="horizontal", label="flux (nJy)", shrink=1)
+    return fig
+
+
+def make_cutout_plotly(
+    label: str,
+    data: bytes,
+    significance_threshold: None | float = 3.0,
+    cmap="viridis",
+) -> go.Figure:
+    fig = go.Figure(
+        layout_yaxis_scaleanchor="x",
+        layout_xaxis_visible=False,
+        layout_yaxis_visible=False,
+        layout_plot_bgcolor="rgba(0,0,0,0)",
+        layout_autosize=False,
+        layout_width=400,
+        layout_height=450,
+        layout_margin=dict(l=5, r=5, b=10, t=10, pad=4),
+    )
+
+    with fits.open(io.BytesIO(data)) as hdul:
+        main, var, err = hdul
+
+        vmin, vmax = np.percentile(main.data, [50, 99.5])
+        flux = main.data.astype(main.data.dtype.newbyteorder())
+        fluxerr = np.sqrt(var.data.astype(var.data.dtype.newbyteorder()))
+
+        err_contour = get_halfmax_ellipse(main, err)
+
+    if significance_threshold is not None:
+        fig.add_trace(
+            go.Heatmap(
+                z=flux,
+                colorscale=desaturate(cmap),
+                zmin=vmin,
+                zmax=vmax,
+                showscale=False,
+            ),
+        )
+        mflux = np.where(np.abs(flux / fluxerr) >= significance_threshold, flux, np.nan)
+    else:
+        mflux = flux
+    fig.add_trace(
+        go.Heatmap(
+            z=mflux,
+            colorscale=cmap,
+            zmin=vmin,
+            zmax=vmax,
+            showscale=True,
+            colorbar_orientation="h",
+            colorbar_thickness=10,
+            colorbar_thicknessmode="pixels",
+            colorbar_title="Flux (nJy)",
+            colorbar_y=1,
+            customdata=np.dstack([flux, fluxerr]),
+            hovertemplate="%{customdata[0]:.2f} &plusmn; %{customdata[1]:.2f} nJy",
+            name=label,
+        ),
+    )
+
+    def scalebar(fig: go.Figure, img: np.ndarray, len: float, text: str):
+        x, y = img.shape[1] - 2, 2
+        fig.add_trace(
+            go.Scatter(
+                x=[x - len, x],
+                y=[y, y],
+                mode="lines",
+                line=dict(color="white", width=2),
+                name="",
+                hoverinfo="skip",
+            )
+        )
+        fig.add_annotation(
+            x=x - len / 2,
+            y=y + 1.5,
+            text=text,
+            showarrow=False,
+            font=dict(color="white"),
+            align="center",
+        )
+        fig.add_annotation(
+            x=2,
+            y=x,
+            text=label,
+            showarrow=False,
+            font=dict(color="white"),
+            bgcolor="black",
+            borderpad=10,
+            align="left",
+            valign="top",
+        )
+
+    def err_ellipse(fig: go.Figure, ellipse: EllipseParams, npoints: int = 100):
+        theta = np.linspace(0, 2 * np.pi, npoints)
+        a, b = ellipse["width"] / 2, ellipse["height"] / 2
+        r = np.radians(ellipse["angle"])
+        cr, sr = np.cos(r), np.sin(r)
+        ct, st = np.cos(theta), np.sin(theta)
+        x = a * ct * cr - b * st * sr
+        y = a * sr * ct + b * cr * st
+        x_final = x + ellipse["xy"][0]
+        y_final = y + ellipse["xy"][1]
+
+        fig.add_trace(
+            go.Scatter(
+                x=x_final,
+                y=y_final,
+                mode="lines",
+                line=dict(color="white", width=1, dash="dot"),
+                name="",
+                hoverinfo="skip",
+            )
+        )
+
+    scalebar(fig, flux, 5, "1''")
+    err_ellipse(fig, err_contour)
+
     return fig
 
 

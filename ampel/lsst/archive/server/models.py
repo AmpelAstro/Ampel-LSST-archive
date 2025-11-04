@@ -8,6 +8,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    JsonValue,
     PlainSerializer,
     field_validator,
     model_validator,
@@ -42,6 +43,18 @@ class StreamDescription(BaseModel):
         default=None,
         description="Timestamp when query finished (null if still running)",
     )
+
+
+class PlotlyFigure(BaseModel):
+    data: JsonValue
+    layout: JsonValue
+    frames: list[JsonValue] | None = None
+
+
+class CutoutPlots(BaseModel):
+    template: PlotlyFigure
+    science: PlotlyFigure
+    difference: PlotlyFigure
 
 
 class AstropyTime(BaseModel):

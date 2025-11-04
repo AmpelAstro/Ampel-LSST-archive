@@ -7,7 +7,7 @@ from fastapi import (
     Query,
     status,
 )
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -16,8 +16,9 @@ from ..avro import extract_record
 from ..db import get_blobs_with_condition, get_schema
 from ..models import Alert
 from .alert import AlertFromId
-from .cutouts import render_cutout_plots
+from .cutouts import make_cutout_plotly
 from .db import AsyncSession
+from .models import CutoutPlots
 from .s3 import Bucket, get_range
 from .settings import settings
 
@@ -26,20 +27,17 @@ router = APIRouter(tags=["display"])
 
 @router.get(
     "/alert/{diaSourceId}/cutouts",
+    response_model=CutoutPlots,
 )
 def display_cutouts(
     alert: AlertFromId, sigma: Annotated[None | float, Query(ge=0)] = None
 ):
-    return PlainTextResponse(
-        render_cutout_plots(
-            {
-                k: alert[f"cutout{k.capitalize()}"]
-                for k in ["template", "science", "difference"]
-            },
-            significance_threshold=sigma,
-        ),
-        media_type="image/svg+xml",
-    )
+    return {
+        k: make_cutout_plotly(
+            k, alert[f"cutout{k.capitalize()}"], sigma
+        ).to_plotly_json()
+        for k in ["template", "science", "difference"]
+    }
 
 
 @router.get("/roulette")
