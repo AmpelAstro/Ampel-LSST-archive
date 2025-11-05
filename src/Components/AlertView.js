@@ -24,6 +24,12 @@ const LinkBadge = ({ diaObjectId, ssObjectId }) => {
   return null;
 };
 
+const Cutout = ({ payload }) => {
+  return (
+    <Plot data={payload.data} layout={payload.layout} />
+  );
+};
+
 const AlertView = () => {
   const { diaSourceId } = useParams();
   const navigate = useNavigate();
@@ -112,9 +118,9 @@ const AlertView = () => {
       </div>
 
       <div className="mb-3">
-        <Plot data={template.data} layout={template.layout} />
-        <Plot data={science.data} layout={science.layout} />
-        <Plot data={diff.data} layout={diff.layout} />
+        <Cutout payload={template} />
+        <Cutout payload={science} />
+        <Cutout payload={diff} />
       </div>
       <ReactJsonView
         src={alertData}

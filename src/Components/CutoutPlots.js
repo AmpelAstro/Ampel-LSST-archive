@@ -10,7 +10,6 @@ const initState = () => {
         visible: false,
       },
       plot_bgcolor: "rgba(0,0,0,0)",
-      autosize: true,
       width: 400,
       height: 450,
       margin: {
