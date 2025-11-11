@@ -5,9 +5,11 @@ const initState = () => {
       yaxis: {
         scaleanchor: "x",
         visible: false,
+        fixedrange: true,
       },
       xaxis: {
         visible: false,
+        fixedrange: true,
       },
       plot_bgcolor: "rgba(0,0,0,0)",
       width: 400,

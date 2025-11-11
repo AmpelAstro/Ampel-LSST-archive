@@ -9,14 +9,20 @@ import { JSONParse } from "json-with-bigint";
 const LinkBadge = ({ diaObjectId, ssObjectId }) => {
   if (diaObjectId) {
     return (
-      <a href={`${process.env.PUBLIC_URL}/diaobject/${diaObjectId}`} className="btn btn-success mx-2">
+      <a
+        href={`${process.env.PUBLIC_URL}/diaobject/${diaObjectId}`}
+        className="btn btn-success mx-2"
+      >
         DIAObject
       </a>
     );
   }
   if (ssObjectId) {
     return (
-      <a href={`${process.env.PUBLIC_URL}/ssobject/${ssObjectId}`} className="btn btn-secondary mx-2">
+      <a
+        href={`${process.env.PUBLIC_URL}/ssobject/${ssObjectId}`}
+        className="btn btn-secondary mx-2"
+      >
         SSObject
       </a>
     );
@@ -25,7 +31,13 @@ const LinkBadge = ({ diaObjectId, ssObjectId }) => {
 };
 
 const Cutout = ({ payload }) => {
-  return <Plot data={payload.data} layout={payload.layout} />;
+  return (
+    <Plot
+      data={payload.data}
+      layout={payload.layout}
+      config={{ displayModeBar: false }}
+    />
+  );
 };
 
 const AlertView = () => {
