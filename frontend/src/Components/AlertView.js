@@ -113,9 +113,8 @@ const AlertView = () => {
           `${process.env.REACT_APP_API_BASE}/display/roulette`
         );
         const newId = response.data;
-        setIdState(newId);
         // Update the URL param so the route reflects the new id
-        navigate(`/alert/${newId}`);
+        navigate(`${process.env.PUBLIC_URL}/alert/${newId}`);
       } catch (error) {
         //   setError(error);
       } finally {
