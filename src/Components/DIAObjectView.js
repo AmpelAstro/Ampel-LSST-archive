@@ -18,7 +18,7 @@ const DIAObjectView = () => {
     if (diaObjectId && diaObjectId !== idState) {
       setIdState(diaObjectId);
     }
-  }, [diaObjectId]);
+  }, [diaObjectId, idState]);
 
   // Fetch alert details whenever the current id changes
   useEffect(() => {

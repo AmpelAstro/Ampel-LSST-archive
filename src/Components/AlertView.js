@@ -49,7 +49,7 @@ const AlertView = () => {
       setAlertData({});
       setIdState(diaSourceId);
     }
-  }, [diaSourceId]);
+  }, [diaSourceId, idState]);
 
   // Fetch alert details whenever the current id changes
   useEffect(() => {

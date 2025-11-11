@@ -12,7 +12,7 @@ const SSObjectView = () => {
     if (ssObjectId && ssObjectId !== idState) {
       setIdState(ssObjectId);
     }
-  }, [ssObjectId]);
+  }, [ssObjectId, idState]);
 
   return (
     <div className="mx-1 mt-2">
