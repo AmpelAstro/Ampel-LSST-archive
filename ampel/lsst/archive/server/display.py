@@ -1,13 +1,15 @@
 import io
-from collections.abc import Sequence
-from typing import Annotated, cast
+import itertools
+from collections.abc import Generator, Sequence
+from typing import Annotated, TypedDict, cast
 
+import plotly.express as px
+from astropy.table import Table
 from fastapi import (
     APIRouter,
+    Depends,
     Query,
-    status,
 )
-from fastapi.responses import RedirectResponse
 from sqlalchemy import text
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -18,26 +20,42 @@ from ..models import Alert
 from .alert import AlertFromId
 from .cutouts import make_cutout_plotly
 from .db import AsyncSession
-from .models import CutoutPlots
+from .models import AlertDisplay, CutoutPlots, PlotlyFigure
 from .s3 import Bucket, get_range
-from .settings import settings
 
 router = APIRouter(tags=["display"])
 
 
-@router.get(
+def _get_cutout_plots(
+    alert: AlertFromId,
+    sigma: Annotated[None | float, Query(ge=0)] = None,
+) -> CutoutPlots:
+    return CutoutPlots(
+        **{
+            k: make_cutout_plotly(
+                k, alert[f"cutout{k.capitalize()}"], sigma
+            ).to_plotly_json()
+            for k in ["template", "science", "difference"]
+        }
+    )
+
+
+CutoutPlotsFromId = Annotated[CutoutPlots, Depends(_get_cutout_plots)]
+
+router.get(
     "/alert/{diaSourceId}/cutouts",
     response_model=CutoutPlots,
+)(_get_cutout_plots)
+
+
+@router.get(
+    "/alert/{diaSourceId}",
 )
-def display_cutouts(
-    alert: AlertFromId, sigma: Annotated[None | float, Query(ge=0)] = None
-):
-    return {
-        k: make_cutout_plotly(
-            k, alert[f"cutout{k.capitalize()}"], sigma
-        ).to_plotly_json()
-        for k in ["template", "science", "difference"]
-    }
+def display_alert(alert: AlertFromId, cutouts: CutoutPlotsFromId):
+    return AlertDisplay(
+        alert={k: v for k, v in alert.items() if not k.startswith("cutout")},
+        cutouts=cutouts,
+    )
 
 
 @router.get("/roulette")
@@ -50,10 +68,11 @@ async def rien_de_la_plus(
     diaSourceId = await session.scalar(
         text("select id from alert TABLESAMPLE system_rows(1)")
     )
-    return RedirectResponse(
-        url=f"{settings.root_path}/display/alert/{diaSourceId}/cutouts?sigma=3",
-        status_code=status.HTTP_303_SEE_OTHER,
+    diaSourceId = await session.scalar(
+        text("select id from alert order by random() limit 1")
     )
+
+    return str(diaSourceId)
 
 
 async def get_alerts_with_condition(
@@ -85,6 +104,107 @@ async def get_alerts_for_diaobject(
             session, bucket, [Alert.diaobject_id == diaObjectId]
         )
     ]
+
+
+class Photopoint(TypedDict):
+    id: int
+    visit: int
+    detector: int
+    midpointMjdTai: float
+    ra: float
+    raErr: float | None
+    dec: float
+    decErr: float | None
+    psfFlux: float | None
+    psfFluxErr: float | None
+    band: str | None
+
+
+def _get_photopoints(alert: LSSTAlert) -> Generator[Photopoint, None, None]:
+    for diaSource in itertools.chain(
+        [alert["diaSource"]], alert.get("prvDiaSources") or []
+    ):
+        yield {
+            "id": diaSource["diaSourceId"],
+            "visit": diaSource["visit"],
+            "detector": diaSource["detector"],
+            "midpointMjdTai": diaSource["midpointMjdTai"],
+            "ra": diaSource["ra"],
+            "raErr": diaSource["raErr"],
+            "dec": diaSource["dec"],
+            "decErr": diaSource["decErr"],
+            "psfFlux": diaSource["psfFlux"],
+            "psfFluxErr": diaSource["psfFluxErr"],
+            "band": diaSource["band"],
+        }
+
+
+@router.get("/diaobject/{diaObjectId}/summaryplots")
+async def get_photopoints_for_diaobject(
+    diaObjectId: int,
+    session: AsyncSession,
+    bucket: Bucket,
+) -> dict[str, PlotlyFigure]:
+    # deduplicate by visit, sort by time
+    # FIXME: probably want to keep a thin column store of photopoints for performance
+    # ~3 s for 21 alerts from localstack s3 is pretty slow
+
+    alerts = [
+        alert
+        async for alert in get_alerts_with_condition(
+            session, bucket, [Alert.diaobject_id == diaObjectId]
+        )
+    ]
+
+    pps = Table(
+        sorted(
+            {
+                pp["visit"]: pp for alert in alerts for pp in _get_photopoints(alert)
+            }.values(),
+            key=lambda pp: pp["midpointMjdTai"],
+        )
+    )
+
+    lightcurve_fig = px.scatter(
+        pps.to_pandas(),
+        x="midpointMjdTai",
+        y="psfFlux",
+        error_y="psfFluxErr",
+        color="band",
+        template="simple_white",
+        hover_data=[
+            "visit",
+            "detector",
+            "id",
+            "ra",
+            "raErr",
+            "dec",
+            "decErr",
+        ],
+    )
+    centroid_fig = px.scatter(
+        pps.to_pandas(),
+        x="ra",
+        y="dec",
+        error_x="raErr",
+        error_y="decErr",
+        color="band",
+        template="simple_white",
+        hover_data=[
+            "midpointMjdTai",
+            "visit",
+            "detector",
+            "psfFlux",
+            "psfFluxErr",
+            "id",
+        ],
+    )
+    centroid_fig.update_layout(yaxis_scaleanchor="x")
+
+    return {
+        "lightcurve": lightcurve_fig.to_plotly_json(),
+        "centroid": centroid_fig.to_plotly_json(),
+    }
 
 
 @router.get("/ssobject/{ssObjectId}")

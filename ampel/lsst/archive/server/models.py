@@ -57,6 +57,11 @@ class CutoutPlots(BaseModel):
     difference: PlotlyFigure
 
 
+class AlertDisplay(BaseModel):
+    alert: JsonValue
+    cutouts: CutoutPlots
+
+
 class AstropyTime(BaseModel):
     """
     A time representation compatible with astropy.time.Time
