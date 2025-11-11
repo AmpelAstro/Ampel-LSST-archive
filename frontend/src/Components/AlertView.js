@@ -98,7 +98,7 @@ const AlertView = () => {
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          `http://localhost:8080/v1/display/roulette`
+          `${process.env.REACT_APP_API_BASE}/display/roulette`
         );
         const newId = response.data;
         setIdState(newId);
