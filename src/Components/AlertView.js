@@ -1,7 +1,7 @@
 import { initState } from "./CutoutPlots";
 import React, { useState, useEffect } from "react";
 import Plot from "react-plotly.js";
-import axios from "axios"; // If using axios
+import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
 import ReactJsonView from "@microlink/react-json-view";
 import { JSONParse } from "json-with-bigint";
@@ -25,9 +25,7 @@ const LinkBadge = ({ diaObjectId, ssObjectId }) => {
 };
 
 const Cutout = ({ payload }) => {
-  return (
-    <Plot data={payload.data} layout={payload.layout} />
-  );
+  return <Plot data={payload.data} layout={payload.layout} />;
 };
 
 const AlertView = () => {
@@ -64,9 +62,27 @@ const AlertView = () => {
           `http://localhost:8080/v1/display/alert/${idState}`,
           { transformResponse: [(data) => JSONParse(data)] }
         );
-        setTemplate(response.data.cutouts.template);
-        setScience(response.data.cutouts.science);
-        setDiff(response.data.cutouts.difference);
+        setTemplate((prevState) => ({
+          data: response.data.cutouts.template.data,
+          layout: {
+            ...prevState.layout,
+            ...response.data.cutouts.template.layout,
+          },
+        }));
+        setScience((prevState) => ({
+          data: response.data.cutouts.science.data,
+          layout: {
+            ...prevState.layout,
+            ...response.data.cutouts.science.layout,
+          },
+        }));
+        setDiff((prevState) => ({
+          data: response.data.cutouts.difference.data,
+          layout: {
+            ...prevState.layout,
+            ...response.data.cutouts.difference.layout,
+          },
+        }));
         setAlertData(response.data.alert);
       } catch (error) {
         //   setError(error);
