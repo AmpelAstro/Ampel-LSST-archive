@@ -48,6 +48,7 @@ prometheus-async = "^25.1.0"
 prometheus-fastapi-instrumentator = "^7.1.0"
 plotly = "^6.3.1"
 pandas = "^2.3.3"
+pyiceberg = {version="^0.10.0", extras=["pyarrow", "sql-sqlite"]}
 
 [tool.poetry.extras]
 image = ["matplotlib", "scipy"]
