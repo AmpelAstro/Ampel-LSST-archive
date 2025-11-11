@@ -9,14 +9,14 @@ import { JSONParse } from "json-with-bigint";
 const LinkBadge = ({ diaObjectId, ssObjectId }) => {
   if (diaObjectId) {
     return (
-      <a href={`/diaobject/${diaObjectId}`} className="btn btn-success mx-2">
+      <a href={`${process.env.PUBLIC_URL}/diaobject/${diaObjectId}`} className="btn btn-success mx-2">
         DIAObject
       </a>
     );
   }
   if (ssObjectId) {
     return (
-      <a href={`/ssobject/${ssObjectId}`} className="btn btn-secondary mx-2">
+      <a href={`${process.env.PUBLIC_URL}/ssobject/${ssObjectId}`} className="btn btn-secondary mx-2">
         SSObject
       </a>
     );
