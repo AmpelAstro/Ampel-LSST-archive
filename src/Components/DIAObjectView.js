@@ -28,7 +28,7 @@ const DIAObjectView = () => {
       try {
         // parse response with JSONParse to handle BigInt
         const response = await axios.get(
-          `http://localhost:8080/v1/display/diaobject/${idState}/summaryplots`
+          `${process.env.REACT_APP_API_BASE}/display/diaobject/${idState}/summaryplots`
         );
         setLightcurve(response.data.lightcurve);
         setCentroid(response.data.centroid);

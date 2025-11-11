@@ -59,7 +59,7 @@ const AlertView = () => {
       try {
         // parse response with JSONParse to handle BigInt
         const response = await axios.get(
-          `http://localhost:8080/v1/display/alert/${idState}`,
+          `${process.env.REACT_APP_API_BASE}/display/alert/${idState}`,
           { transformResponse: [(data) => JSONParse(data)] }
         );
         setTemplate((prevState) => ({
