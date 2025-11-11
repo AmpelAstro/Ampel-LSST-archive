@@ -37,6 +37,11 @@ class Settings(BaseSettings):
         validation_alias="ALLOWED_IDENTITIES",
         description="Usernames, teams, and orgs allowed to create persistent tokens",
     )
+    allowed_origins: list[str] = Field(
+        [],
+        validation_alias="ALLOWED_ORIGINS",
+        description="Allowed CORS origins",
+    )
     model_config = SettingsConfigDict(env_file=".env")
 
 
