@@ -114,7 +114,7 @@ const AlertView = () => {
         );
         const newId = response.data;
         // Update the URL param so the route reflects the new id
-        navigate(`${process.env.PUBLIC_URL}/alert/${newId}`);
+        navigate(`/alert/${newId}`);
       } catch (error) {
         //   setError(error);
       } finally {
