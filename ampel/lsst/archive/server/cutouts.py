@@ -198,16 +198,7 @@ def make_cutout_plotly(
     significance_threshold: None | float = 3.0,
     cmap="viridis",
 ) -> go.Figure:
-    fig = go.Figure(
-        layout_yaxis_scaleanchor="x",
-        layout_xaxis_visible=False,
-        layout_yaxis_visible=False,
-        layout_plot_bgcolor="rgba(0,0,0,0)",
-        layout_autosize=False,
-        layout_width=400,
-        layout_height=450,
-        layout_margin=dict(l=5, r=5, b=10, t=10, pad=4),
-    )
+    fig = go.Figure()
 
     with fits.open(io.BytesIO(data)) as hdul:
         main, var, err = hdul
