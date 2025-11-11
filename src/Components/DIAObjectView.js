@@ -1,6 +1,6 @@
 import { initState } from "./CutoutPlots";
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import Plot from "react-plotly.js";
 import axios from "axios";
 
