@@ -145,9 +145,9 @@ const AlertView = () => {
       </div>
 
       <div className="mb-3">
-        <Cutout payload={template} />
-        <Cutout payload={science} />
         <Cutout payload={diff} />
+        <Cutout payload={science} />
+        <Cutout payload={template} />
       </div>
       <ReactJsonView
         src={alertData}
