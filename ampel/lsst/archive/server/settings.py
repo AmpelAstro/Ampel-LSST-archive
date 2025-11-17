@@ -25,7 +25,8 @@ class Settings(BaseSettings):
         validation_alias="STREAM_CHUNK_BYTES",
         description="Size of alert chunks when streaming from S3",
     )
-    s3_endpoint_url: HttpUrl | None = Field(None, validation_alias="S3_ENDPOINT_URL")
+    catalog_endpoint_url: HttpUrl = Field(..., validation_alias="CATALOG_ENDPOINT_URL")
+    s3_endpoint: str | None = Field(None, validation_alias="S3_ENDPOINT")
     s3_bucket: str = Field("ampel-lsst-cutout-archive", validation_alias="S3_BUCKET")
     s3_insecure: bool = Field(False, validation_alias="S3_INSECURE")
     jwt_secret_key: str = Field(

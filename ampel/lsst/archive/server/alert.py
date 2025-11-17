@@ -1,38 +1,35 @@
-import io
 from typing import Annotated, cast
 
 from fastapi import Depends, HTTPException, status
-from prometheus_async.aio import time
 
 from ..alert_packet import Alert as LSSTAlert
-from ..avro import extract_record
-from ..db import get_blobs_with_condition, get_schema
-from ..models import Alert
-from .db import (
-    AsyncSession,
-)
+from .iceberg import Connection
 from .metrics import REQ_TIME
-from .s3 import Bucket, get_range
+
+REQ_TIME.labels("get_alert_from_iceberg").time()
 
 
-@time(REQ_TIME.labels("get_alert_from_s3"))
-async def get_alert_from_s3(
+def get_alert_from_iceberg(
     diaSourceId: int,
-    session: AsyncSession,
-    bucket: Bucket,
-) -> dict:
-    async for uri, start, end, schema_id in get_blobs_with_condition(
-        session,
-        [Alert.id == diaSourceId],
-    ):
-        schema = await get_schema(session, schema_id)
-        body = await get_range(bucket, uri, start, end)
-        content = await time(REQ_TIME.labels("read_body"))(body.read)()
-        record = extract_record(io.BytesIO(content), schema)
+    connection: Connection,
+) -> LSSTAlert:
+    if (
+        record := next(
+            iter(
+                connection.execute(
+                    "select * from alerts where diaSourceId = ? limit 1;",
+                    (diaSourceId,),
+                )
+                .fetch_arrow_table()
+                .to_pylist()
+            ),
+            None,
+        )
+    ) is not None:
         return cast(LSSTAlert, record)
     raise HTTPException(
-        status.HTTP_404_NOT_FOUND, detail={"msg": f"{diaSourceId=} not found"}
+        status.HTTP_404_NOT_FOUND, detail={"msg": f"no alert with {diaSourceId=}"}
     )
 
 
-AlertFromId = Annotated[LSSTAlert, Depends(get_alert_from_s3)]
+AlertFromId = Annotated[LSSTAlert, Depends(get_alert_from_iceberg)]

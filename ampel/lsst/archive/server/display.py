@@ -1,10 +1,8 @@
 import io
-import itertools
-from collections.abc import Generator, Sequence
-from typing import Annotated, TypedDict, cast
+from collections.abc import Sequence
+from typing import Annotated, cast
 
 import plotly.express as px
-from astropy.table import Table
 from astropy.time import Time
 from fastapi import (
     APIRouter,
@@ -22,6 +20,7 @@ from ..models import Alert
 from .alert import AlertFromId
 from .cutouts import make_cutout_plotly
 from .db import AsyncSession
+from .iceberg import Connection
 from .models import AlertDisplay, CutoutPlots
 from .s3 import Bucket, get_range
 
@@ -108,71 +107,54 @@ async def get_alerts_for_diaobject(
     ]
 
 
-class Photopoint(TypedDict):
-    id: int
-    visit: int
-    detector: int
-    midpointMjdTai: float
-    ra: float
-    raErr: float | None
-    dec: float
-    decErr: float | None
-    psfFlux: float | None
-    psfFluxErr: float | None
-    band: str | None
-
-
-def _get_photopoints(alert: LSSTAlert) -> Generator[Photopoint, None, None]:
-    for diaSource in itertools.chain(
-        [alert["diaSource"]], alert.get("prvDiaSources") or []
-    ):
-        yield {
-            "id": diaSource["diaSourceId"],
-            "visit": diaSource["visit"],
-            "detector": diaSource["detector"],
-            "midpointMjdTai": diaSource["midpointMjdTai"],
-            "ra": diaSource["ra"],
-            "raErr": diaSource["raErr"],
-            "dec": diaSource["dec"],
-            "decErr": diaSource["decErr"],
-            "psfFlux": diaSource["psfFlux"],
-            "psfFluxErr": diaSource["psfFluxErr"],
-            "band": diaSource["band"],
-        }
-
-
 @router.get("/diaobject/{diaObjectId}/summaryplots")
 async def get_photopoints_for_diaobject(
-    diaObjectId: int,
-    session: AsyncSession,
-    bucket: Bucket,
+    diaObjectId: int, connection: Connection
 ) -> ORJSONResponse:
-    # deduplicate by visit, sort by time
-    # FIXME: probably want to keep a thin column store of photopoints for performance
-    # ~3 s for 21 alerts from localstack s3 is pretty slow
+    # append diaSource to history, unnest, uniqify, and project
+    # there doesn't seem to be a way to push projections down through any list operation
+    df = connection.execute(
+        """
+        select
+            distinct on (visit)
+            diaSourceId,
+            visit,
+            detector,
+            midpointMjdTai,
+            ra,
+            dec,
+            raErr,
+            decErr,
+            psfFlux,
+            psfFluxErr,
+            band
+        from
+            (
+                select
+                    unnest(diaSources, recursive := true)
+                from
+                    (
+                        select
+                            list_append(prvDiaSources, diaSource) as diaSources
+                        from
+                            alerts
+                        where
+                            diaSource.diaObjectId = ?
+                    ) a
+            ) b
+        order by
+            visit;
+        """,
+        (diaObjectId,),
+    ).df()
 
-    alerts = [
-        alert
-        async for alert in get_alerts_with_condition(
-            session, bucket, [Alert.diaobject_id == diaObjectId]
-        )
-    ]
+    # emit calendar dates for plotting purposes
+    df["epoch"] = Time(df["midpointMjdTai"], format="mjd", scale="tai").to_datetime()
 
-    pps = Table(
-        sorted(
-            {
-                pp["visit"]: pp for alert in alerts for pp in _get_photopoints(alert)
-            }.values(),
-            key=lambda pp: pp["midpointMjdTai"],
-        )
-    )
-    pps["epoch"] = Time(pps["midpointMjdTai"], format="mjd", scale="tai").to_datetime()
-
-    df = pps.to_pandas()
     # NB: it would be easiest to pass diaSourceId in hover_data, but plotly
     # converts the content to doubles, losing precision in the process. pass in
     # a separate stringified list to bypass.
-    diaSourceId = df["id"]
+    diaSourceId = df["diaSourceId"]
     ids_for_groups = {
         band: diaSourceId[idx].to_numpy().astype(str).tolist()
         for band, idx in df.groupby("band").groups.items()
