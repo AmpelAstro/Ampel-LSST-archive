@@ -1,17 +1,19 @@
 import { initState } from "./CutoutPlots";
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import Plot from "react-plotly.js";
 import axios from "axios";
 
 const DIAObjectView = () => {
   const { diaObjectId } = useParams();
+  const navigate = useNavigate();
 
   // Keep a local id state, synced with the URL param
   const [idState, setIdState] = useState(diaObjectId);
 
   const [lightcurve, setLightcurve] = useState(initState());
   const [centroid, setCentroid] = useState(initState());
+  const [idsForGroups, setIdsForGroups] = useState([]);
 
   // Sync local state if the URL param changes (e.g., via navigate or manual URL entry)
   useEffect(() => {
@@ -32,6 +34,7 @@ const DIAObjectView = () => {
         );
         setLightcurve(response.data.lightcurve);
         setCentroid(response.data.centroid);
+        setIdsForGroups(response.data._ids_for_groups);
       } catch (error) {
         //   setError(error);
       } finally {
@@ -42,16 +45,24 @@ const DIAObjectView = () => {
     fetchData();
   }, [idState]);
 
+  const onClick = (data) => {
+    const point = data.points[0];
+    const newId = idsForGroups[point.curveNumber][point.pointNumber];
+    navigate(`/alert/${newId}`);
+  };
+
   return (
     <div className="mx-1 mt-2">
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h5 className="mb-0">
-          DIAObject {idState}
-        </h5>
+        <h5 className="mb-0">DIAObject {idState}</h5>
       </div>
       <div className="mb-3">
-        <Plot layout={lightcurve.layout} data={lightcurve.data} />
-        <Plot layout={centroid.layout} data={centroid.data} />
+        <Plot
+          layout={lightcurve.layout}
+          data={lightcurve.data}
+          onClick={onClick}
+        />
+        <Plot layout={centroid.layout} data={centroid.data} onClick={onClick} />
       </div>
     </div>
   );

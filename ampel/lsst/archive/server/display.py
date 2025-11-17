@@ -5,11 +5,13 @@ from typing import Annotated, TypedDict, cast
 
 import plotly.express as px
 from astropy.table import Table
+from astropy.time import Time
 from fastapi import (
     APIRouter,
     Depends,
     Query,
 )
+from fastapi.responses import ORJSONResponse
 from sqlalchemy import text
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -20,7 +22,7 @@ from ..models import Alert
 from .alert import AlertFromId
 from .cutouts import make_cutout_plotly
 from .db import AsyncSession
-from .models import AlertDisplay, CutoutPlots, PlotlyFigure
+from .models import AlertDisplay, CutoutPlots
 from .s3 import Bucket, get_range
 
 router = APIRouter(tags=["display"])
@@ -144,7 +146,7 @@ async def get_photopoints_for_diaobject(
     diaObjectId: int,
     session: AsyncSession,
     bucket: Bucket,
-) -> dict[str, PlotlyFigure]:
+) -> ORJSONResponse:
     # deduplicate by visit, sort by time
     # FIXME: probably want to keep a thin column store of photopoints for performance
     # ~3 s for 21 alerts from localstack s3 is pretty slow
@@ -164,10 +166,21 @@ async def get_photopoints_for_diaobject(
             key=lambda pp: pp["midpointMjdTai"],
         )
     )
+    pps["epoch"] = Time(pps["midpointMjdTai"], format="mjd", scale="tai").to_datetime()
+
+    df = pps.to_pandas()
+    # NB: it would be easiest to pass diaSourceId in hover_data, but plotly
+    # converts the content to doubles, losing precision in the process. pass in
+    # a separate stringified list to bypass.
+    diaSourceId = df["id"]
+    ids_for_groups = [
+        diaSourceId[idx].to_numpy().astype(str).tolist()
+        for idx in df.groupby("band").groups.values()
+    ]
 
     lightcurve_fig = px.scatter(
-        pps.to_pandas(),
-        x="midpointMjdTai",
+        df,
+        x="epoch",
         y="psfFlux",
         error_y="psfFluxErr",
         color="band",
@@ -175,7 +188,6 @@ async def get_photopoints_for_diaobject(
         hover_data=[
             "visit",
             "detector",
-            "id",
             "ra",
             "raErr",
             "dec",
@@ -183,7 +195,7 @@ async def get_photopoints_for_diaobject(
         ],
     )
     centroid_fig = px.scatter(
-        pps.to_pandas(),
+        df,
         x="ra",
         y="dec",
         error_x="raErr",
@@ -196,15 +208,17 @@ async def get_photopoints_for_diaobject(
             "detector",
             "psfFlux",
             "psfFluxErr",
-            "id",
         ],
     )
     centroid_fig.update_layout(yaxis_scaleanchor="x")
 
-    return {
-        "lightcurve": lightcurve_fig.to_plotly_json(),
-        "centroid": centroid_fig.to_plotly_json(),
-    }
+    return ORJSONResponse(
+        content={
+            "lightcurve": lightcurve_fig.to_plotly_json(),
+            "centroid": centroid_fig.to_plotly_json(),
+            "_ids_for_groups": ids_for_groups,
+        }
+    )
 
 
 @router.get("/ssobject/{ssObjectId}")
