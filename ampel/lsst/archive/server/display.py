@@ -173,10 +173,11 @@ async def get_photopoints_for_diaobject(
     # converts the content to doubles, losing precision in the process. pass in
     # a separate stringified list to bypass.
     diaSourceId = df["id"]
-    ids_for_groups = [
-        diaSourceId[idx].to_numpy().astype(str).tolist()
-        for idx in df.groupby("band").groups.values()
-    ]
+    ids_for_groups = {
+        band: diaSourceId[idx].to_numpy().astype(str).tolist()
+        for band, idx in df.groupby("band").groups.items()
+    }
+    category_orders = {"band": "ugrizy"}
 
     lightcurve_fig = px.scatter(
         df,
@@ -184,6 +185,7 @@ async def get_photopoints_for_diaobject(
         y="psfFlux",
         error_y="psfFluxErr",
         color="band",
+        category_orders=category_orders,
         template="simple_white",
         hover_data=[
             "visit",
@@ -201,6 +203,7 @@ async def get_photopoints_for_diaobject(
         error_x="raErr",
         error_y="decErr",
         color="band",
+        category_orders=category_orders,
         template="simple_white",
         hover_data=[
             "midpointMjdTai",
@@ -216,7 +219,11 @@ async def get_photopoints_for_diaobject(
         content={
             "lightcurve": lightcurve_fig.to_plotly_json(),
             "centroid": centroid_fig.to_plotly_json(),
-            "_ids_for_groups": ids_for_groups,
+            "_ids_for_groups": [
+                ids_for_groups[band]
+                for band in category_orders["band"]
+                if band in ids_for_groups
+            ],
         }
     )
 
