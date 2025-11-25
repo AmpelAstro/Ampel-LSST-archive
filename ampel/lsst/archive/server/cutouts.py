@@ -1,21 +1,14 @@
 import io
 from typing import TypedDict
 
-import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 from astropy.modeling import fitting, models
 from astropy.wcs import WCS
-from matplotlib.colors import Normalize
-from matplotlib.figure import Figure
-from matplotlib.offsetbox import AnchoredText
-from matplotlib.patches import Ellipse
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 from plotly import graph_objects as go
 from scipy import ndimage
 
 from .colormaps import desaturate
-from .metrics import REQ_TIME
 
 
 def strip_extra_hdus(cutout_data: bytes) -> bytes:
@@ -112,84 +105,6 @@ def get_halfmax_ellipse(flux: fits.PrimaryHDU, psf: fits.ImageHDU) -> EllipsePar
         "height": (FWHM * fit_p.y_stddev.value).tolist(),
         "angle": np.degrees(fit_p.theta.value).tolist(),
     }
-
-
-@REQ_TIME.labels("make_cutout_plots").time()
-def make_cutout_plots(
-    cutouts: dict[str, bytes],
-    significance_threshold: None | float = 3.0,
-    cmap="viridis",
-) -> Figure:
-    shrink = 1 / 1.2
-
-    fig, axes = plt.subplots(
-        1,
-        len(cutouts),
-        figsize=(5.0 * len(cutouts) * shrink, 5.0),
-        gridspec_kw={"wspace": 0.05},
-        layout="constrained",
-    )
-    show_scale_bar = True
-    for (k, v), ax in zip(cutouts.items(), axes, strict=False):
-        hdus = fits.open(io.BytesIO(v))
-        img = hdus[0].data
-        variance = hdus[1].data
-
-        norm = Normalize(*np.percentile(img[np.isfinite(img)], [0.5, 99.5]))
-
-        # show pixels below significance threshold in desaturated colormap
-        if significance_threshold is not None:
-            ax.imshow(img, origin="lower", norm=norm, cmap=desaturate(cmap))
-            bg_color = desaturate(cmap)(0)
-            color_img = np.ma.masked_array(
-                img, mask=np.abs(img / np.sqrt(variance)) < significance_threshold
-            )
-        else:
-            bg_color = plt.get_cmap(cmap)(0)
-            color_img = img
-
-        axes_image = ax.imshow(
-            color_img,
-            origin="lower",
-            cmap=cmap,
-            # clip pixel values below the median
-            norm=norm,
-        )
-        ax.set_axis_off()
-
-        # add PSF half-maximum ellipse
-        ellipse_params = get_halfmax_ellipse(hdus[0], hdus[2])
-        ellipse = Ellipse(
-            **ellipse_params, edgecolor="white", facecolor="none", lw=1, ls="--"
-        )
-        ax.add_patch(ellipse)
-
-        # add scale bar
-        # CDELT1 and CDELT2 are set to 1, but https://rubinobservatory.org/for-scientists/rubin-101/key-numbers says 0.2 arcsec/pixel
-        if show_scale_bar:
-            show_scale_bar = False
-            ax.add_artist(
-                AnchoredSizeBar(
-                    ax.transData,
-                    1 / 0.2,  # 1 arcsec in pixels
-                    "1''",
-                    "lower right",
-                    pad=0.5,
-                    frameon=False,
-                    sep=4,
-                    color="white",
-                )
-            )
-        # label cutout type
-        text = AnchoredText(k, loc="upper left", prop=dict(color="white"))
-        text.patch.set_facecolor(bg_color)
-        text.patch.set_edgecolor("none")
-        text.patch.set_boxstyle("round,pad=0.1,rounding_size=0.2")
-        ax.add_artist(text)
-
-        # add colorbar
-        plt.colorbar(axes_image, orientation="horizontal", label="flux (nJy)", shrink=1)
-    return fig
 
 
 def make_cutout_plotly(
@@ -298,44 +213,3 @@ def make_cutout_plotly(
     err_ellipse(fig, err_contour)
 
     return fig
-
-
-@REQ_TIME.labels("render_cutout_plots").time()
-def render_cutout_plots(
-    fits: dict[str, bytes], significance_threshold: None | float = 3.0
-) -> bytes:
-    fig = make_cutout_plots(fits, significance_threshold=significance_threshold)
-    try:
-        with io.BytesIO() as buf:
-            fig.savefig(buf, format="svg")
-            return buf.getvalue()
-    finally:
-        fig.clear()
-        plt.close(fig)
-
-
-def fits_to_png(cutout_data: bytes) -> bytes:
-    """
-    Render FITS as PNG
-    """
-    img = get_image_north_up_east_left(cutout_data)
-    mask = np.isfinite(img)
-
-    fig = Figure(figsize=(1, 1))
-    try:
-        ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
-        ax.set_axis_off()
-        ax.imshow(
-            img,
-            # clip pixel values below the median
-            norm=Normalize(*np.percentile(img[mask], [0.5, 99.5])),
-            aspect="auto",
-            origin="lower",
-        )
-
-        with io.BytesIO() as buf:
-            fig.savefig(buf, dpi=img.shape[0])
-            return buf.getvalue()
-    finally:
-        fig.clear()
-        plt.close(fig)

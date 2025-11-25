@@ -29,19 +29,14 @@ sqlalchemy = "~2.0.0"
 fastapi = {version = "^0.115.0"}
 pydantic = {version = "^2"}
 PyJWT = {version = "^2.1.0", extras = ["server"]}
-fastavro = {version = "^1.9.2", extras = ["zstandard"]}
 astropy-healpix = "^1.0.0"
 pydantic-settings = {version = "^2.5.2"}
 uvicorn = {version = "^0.32.0"}
 sqlmodel = "^0.0.27"
 typer = "^0.19.2"
-confluent-kafka = {version = "^2.12.0", extras = ["avro", "schemaregistry"]}
 orjson = "^3.11.3"
 zstd-asgi = "^1.0"
-matplotlib = {version = "^3.10.7", optional = true}
 scipy = {version = "^1.16.2", optional = true}
-aioboto3 = "^15.4.0"
-asyncpg = "^0.30.0"
 async-lru = "^2.0.5"
 colorspacious = "^1.1.2"
 prometheus-async = "^25.1.0"
@@ -49,9 +44,10 @@ prometheus-fastapi-instrumentator = "^7.1.0"
 plotly = "^6.3.1"
 pandas = "^2.3.3"
 duckdb = "^1.4.2"
+pyarrow = "^22.0.0"
 
 [tool.poetry.extras]
-image = ["matplotlib", "scipy"]
+image = ["scipy"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
@@ -62,11 +58,7 @@ pytest-timeout = "^2.3.1"
 httpx = "^0.27.2"
 pytest-mock = "^3.14.0"
 pytest-asyncio = "^0.24.0"
-moto = "^5.0.20"
-types-confluent-kafka = {version = "~1", markers = "python_version < '3.14'"}
 scipy-stubs = "^1.16.2.4"
-types-aioboto3 = {version = "^15.4.0", extras = ["s3"]}
-asyncpg-stubs = "^0.30.2"
 alembic = "^1.17.0"
 alembic-utils = "^0.8.8"
 

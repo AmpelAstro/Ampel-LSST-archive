@@ -1,34 +1,14 @@
-import secrets
-from typing import TYPE_CHECKING, Annotated, Literal
-
 from fastapi import (
-    BackgroundTasks,
     FastAPI,
-    Query,
-    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import ORJSONResponse, RedirectResponse
+from fastapi.responses import ORJSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from zstd_asgi import ZstdMiddleware
 
-from ..alert_packet import Alert as LSSTAlert
-from ..db import populate_chunks
-from ..models import ResultGroup
-from ..queries import cone_search_condition, time_range_condition
-from .alert import AlertFromId
-from .cutouts import fits_to_png
-from .db import (
-    AsyncSession,
-    QueryCanceledError,
-    handle_querycancelederror,
-)
 from .display import router as display_router
-from .models import AstropyTime
-from .s3 import Bucket
 from .settings import settings
-from .streams import router as stream_router
 
 # from .tokens import (
 #     AuthToken,
@@ -38,9 +18,6 @@ from .streams import router as stream_router
 # from .tokens import (
 #     router as token_router,
 # )
-
-if TYPE_CHECKING:
-    from ..db import ColumnElement, Sequence
 
 
 DESCRIPTION = """
@@ -94,33 +71,7 @@ if settings.allowed_origins:
         allow_headers=["*"],
     )
 
-app.include_router(stream_router, prefix="/stream")
 app.include_router(display_router, prefix="/display")
-
-app.exception_handler(QueryCanceledError)(handle_querycancelederror)
-
-
-@app.get(
-    "/alert/{diaSourceId}",
-    tags=["alerts"],
-    response_model=LSSTAlert,
-    response_model_exclude_none=True,
-)
-async def get_alert(
-    alert: AlertFromId,
-    cutout_format: Annotated[
-        Literal["fits", "png"], Query(description="Format of cutout images")
-    ] = "fits",
-):
-    """
-    Get a single alert by candidate id.
-    """
-    if cutout_format == "png":
-        for k in "cutoutTemplate", "cutoutScience", "cutoutDifference":
-            if (payload := alert[k]) is not None:
-                alert[k] = fits_to_png(payload)
-    return alert
-
 
 '''
 @app.get(
@@ -238,7 +189,7 @@ def get_alerts_in_time_range(
     )
 '''
 
-
+"""
 async def group_from_query(
     session: AsyncSession,
     bucket: Bucket,
@@ -287,7 +238,7 @@ async def get_alerts_in_cone(
     )
 
     return f"{settings.root_path}/stream/{group.name}"
-
+"""
 
 '''
 @app.get("/alerts/sample")
