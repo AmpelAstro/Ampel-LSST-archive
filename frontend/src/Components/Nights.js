@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { useParams } from "react-router-dom";
-import { JSONParse } from "json-with-bigint";
 
 import "react-tabulator/lib/styles.css"; // required styles
 import "react-tabulator/css/tabulator_bootstrap5.min.css"; // theme

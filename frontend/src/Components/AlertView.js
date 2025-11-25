@@ -1,8 +1,8 @@
 import { initState } from "./CutoutPlots";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Plot from "react-plotly.js";
 import axios from "axios";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import ReactJsonView from "@microlink/react-json-view";
 import { JSONParse } from "json-with-bigint";
 
@@ -42,7 +42,6 @@ const Cutout = ({ payload }) => {
 
 const AlertView = () => {
   const { diaSourceId } = useParams();
-  const navigate = useNavigate();
 
   // Keep a local id state, synced with the URL param
   const [idState, setIdState] = useState(diaSourceId);
@@ -106,25 +105,6 @@ const AlertView = () => {
     fetchData();
   }, [idState]);
 
-  const handleButtonClick = () => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.get(
-          `${process.env.REACT_APP_API_BASE}/display/roulette`
-        );
-        const newId = response.data;
-        // Update the URL param so the route reflects the new id
-        navigate(`/alert/${newId}`);
-      } catch (error) {
-        //   setError(error);
-      } finally {
-        //   setLoading(false);
-      }
-    };
-
-    fetchData();
-  };
-
   return (
     <div className="mx-1 mt-2">
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -135,13 +115,6 @@ const AlertView = () => {
             ssObjectId={alertData.diaSource?.ssObjectId}
           />
         </h5>
-        {/* <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleButtonClick}
-        >
-          Hit me
-        </button> */}
       </div>
 
       <div className="mb-3">
