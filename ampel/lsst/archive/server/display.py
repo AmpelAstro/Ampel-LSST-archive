@@ -4,6 +4,7 @@ from typing import Annotated, cast
 
 import plotly.express as px
 from astropy.time import Time
+from duckdb import ColumnExpression, SQLExpression
 from fastapi import (
     APIRouter,
     Depends,
@@ -20,7 +21,7 @@ from ..models import Alert
 from .alert import AlertFromId
 from .cutouts import make_cutout_plotly
 from .db import AsyncSession
-from .iceberg import Connection
+from .iceberg import AlertQuery, AlertRelation, Connection, flatten
 from .models import AlertDisplay, CutoutPlots
 from .s3 import Bucket, get_range
 
@@ -222,3 +223,22 @@ async def get_alerts_for_ssobject(
             session, bucket, [Alert.ssobject_id == ssObjectId]
         )
     ]
+
+
+@router.post("/alerts/query")
+def query_alerts(query: AlertQuery, alerts: AlertRelation):
+    """Execute an arbitrary query against the alerts table"""
+    return query.flatten(alerts)
+
+
+@router.get("/nights/list")
+async def list_nights(
+    alerts: AlertRelation,
+):
+    return flatten(
+        alerts.select(
+            SQLExpression("diaSource.visit // 100000 as night").alias("night")
+        )
+        .aggregate([ColumnExpression("night"), SQLExpression("count(*) as alerts")])
+        .order("night desc")
+    )
