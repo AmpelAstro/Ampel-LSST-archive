@@ -8,6 +8,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from zstd_asgi import ZstdMiddleware
 
 from .display import router as display_router
+from .iceberg import AlertQuery, AlertRelation
 from .settings import settings
 
 # from .tokens import (
@@ -617,9 +618,22 @@ instrumentator = Instrumentator(
 # router and mount the actual root as a sub-application. This has no effect
 # other than to prefix the paths of all routes with the root path.
 if settings.root_path:
-    wrapper = FastAPI()
+    wrapper = FastAPI(debug=True)
     wrapper.mount(settings.root_path, app)
     app = wrapper
 
 # Expose metrics at the root
 instrumentator.expose(app)
+
+
+@app.get("/health", tags=["health"])
+def health_check(alerts: AlertRelation):
+    assert (
+        len(
+            AlertQuery(
+                include=["diaSourceId"], condition="diaSourceId > 0", limit=1
+            ).flatten(AlertRelation)
+        )
+        == 1
+    )
+    return {"status": "healthy"}
