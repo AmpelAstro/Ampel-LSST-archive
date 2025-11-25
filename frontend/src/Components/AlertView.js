@@ -135,13 +135,13 @@ const AlertView = () => {
             ssObjectId={alertData.diaSource?.ssObjectId}
           />
         </h5>
-        <button
+        {/* <button
           type="button"
           className="btn btn-primary"
           onClick={handleButtonClick}
         >
           Hit me
-        </button>
+        </button> */}
       </div>
 
       <div className="mb-3">
