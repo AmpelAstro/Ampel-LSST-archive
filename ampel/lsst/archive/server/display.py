@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import numpy as np
 import plotly.express as px
 from astropy.time import Time
 from duckdb import ColumnExpression, SQLExpression
@@ -93,6 +94,12 @@ async def get_photopoints_for_diaobject(
 
     # emit calendar dates for plotting purposes
     df["epoch"] = Time(df["midpointMjdTai"], format="mjd", scale="tai").to_datetime()
+    # compute offsets in arcsec from weighted mean position
+    for coord in "ra", "dec":
+        weights = 1 / df[f"{coord}Err"] ** 2
+        center = (df[coord] * weights).sum() / weights.sum()
+        df[f"{coord}Offset"] = (df[coord] - center) * 3600  # arcsec
+        df[f"{coord}OffsetErr"] = df[f"{coord}Err"] * 3600
 
     # NB: it would be easiest to pass diaSourceId in hover_data, but plotly
     # converts the content to doubles, losing precision in the process. pass in
@@ -108,6 +115,10 @@ async def get_photopoints_for_diaobject(
         df,
         x="epoch",
         y="psfFlux",
+        labels={
+            "epoch": "UTC date",
+            "psfFlux": "PSF Flux (nJy)",
+        },
         error_y="psfFluxErr",
         color="band",
         category_orders=category_orders,
@@ -123,10 +134,14 @@ async def get_photopoints_for_diaobject(
     )
     centroid_fig = px.scatter(
         df,
-        x="ra",
-        y="dec",
-        error_x="raErr",
-        error_y="decErr",
+        x="raOffset",
+        y="decOffset",
+        labels={
+            "raOffset": "RA Offset (arcsec)",
+            "decOffset": "Dec Offset (arcsec)",
+        },
+        error_x="raOffsetErr",
+        error_y="decOffsetErr",
         color="band",
         category_orders=category_orders,
         template="simple_white",
@@ -138,7 +153,20 @@ async def get_photopoints_for_diaobject(
             "psfFluxErr",
         ],
     )
-    centroid_fig.update_layout(yaxis_scaleanchor="x")
+    # ensure symmetric axes
+    max_xoffset = max(
+        np.abs((df["raOffset"] + df["raOffsetErr"]).max()),
+        np.abs((df["raOffset"] - df["raOffsetErr"]).min()),
+    )
+    max_yoffset = max(
+        np.abs((df["decOffset"] + df["decOffsetErr"]).max()),
+        np.abs((df["decOffset"] - df["decOffsetErr"]).min()),
+    )
+    centroid_fig.update_layout(
+        yaxis_scaleanchor="x",
+        xaxis_range=[-max_xoffset, max_xoffset],
+        yaxis_range=[-max_yoffset, max_yoffset],
+    )
 
     return ORJSONResponse(
         content={
