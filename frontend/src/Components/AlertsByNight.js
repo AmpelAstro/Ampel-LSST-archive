@@ -95,6 +95,18 @@ const minMaxFilterFunction = function (
   return (headerValue.start === "") && (headerValue.end === "");
 };
 
+const reliabilityColor = function(value) {
+  if (value >= 0.99) {
+    return "green";
+  } else if (value >= 0.95) {
+    return "yellow";
+  } else if (value >= 0.7) {
+    return "orange";
+  } else {
+    return "red";
+  }
+};
+
 const AlertsByNight = () => {
   let params = useParams();
 
@@ -120,6 +132,7 @@ const AlertsByNight = () => {
           `${process.env.REACT_APP_API_BASE}/display/alerts/query`,
           {
             include: [
+              "diaObject.diaObjectId",
               "diaSourceId",
               "diaSource.reliability",
               "diaSource.psfFlux",
@@ -162,7 +175,7 @@ const AlertsByNight = () => {
       hozAlign: "left",
       headerFilter: "progress",
       formatter: "progress",
-      formatterParams: { min: 0, max: 1 },
+      formatterParams: { min: 0, max: 1, color: reliabilityColor },
     },
     {
       title: "psfFlux",
@@ -183,10 +196,15 @@ const AlertsByNight = () => {
       headerFilter: minMaxFilterEditor,
       headerFilterFunc: minMaxFilterFunction,
       headerFilterLiveFilter: false,
+      formatter: "link",
+      formatterParams: {
+        labelField: "nDiaSources",
+        urlField: "diaObjectId",
+        urlPrefix: `${process.env.PUBLIC_URL}/diaobject/`,
+        target: "_blank",
+      },
     },
   ];
-
-  console.log("hola", params);
 
   // NB: fix height for performance reasons; without height constraint all content is rendered immediately
   return (
