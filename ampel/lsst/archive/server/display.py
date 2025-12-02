@@ -10,11 +10,13 @@ from fastapi import (
     Query,
 )
 from fastapi.responses import ORJSONResponse
+from hishel.fastapi import cache
 
 from .alert import AlertFromId
 from .cutouts import make_cutout_plotly
 from .iceberg import AlertQuery, AlertRelation, Connection, flatten
 from .models import AlertDisplay, CutoutPlots
+from .settings import settings
 
 router = APIRouter(tags=["display"])
 
@@ -40,9 +42,12 @@ router.get(
     response_model=CutoutPlots,
 )(_get_cutout_plots)
 
+cache_response = cache(max_age=settings.cache_max_age, public=True)
+
 
 @router.get(
     "/alert/{diaSourceId}",
+    dependencies=[cache_response],
 )
 def display_alert(alert: AlertFromId, cutouts: CutoutPlotsFromId):
     return AlertDisplay(
@@ -168,7 +173,9 @@ async def get_photopoints_for_diaobject(
         yaxis_range=[-max_yoffset, max_yoffset],
     )
 
-    return ORJSONResponse(
+    # return as ORJSONResponse to avoid serializability check (we already know
+    # ORJSON can handle numpy arrays)
+    response = ORJSONResponse(
         content={
             "lightcurve": lightcurve_fig.to_plotly_json(),
             "centroid": centroid_fig.to_plotly_json(),
@@ -179,6 +186,10 @@ async def get_photopoints_for_diaobject(
             ],
         }
     )
+    # manually call cache dependency; fastapi doesn't do this when you return a
+    # response directly
+    cache_response.dependency(response)
+    return response
 
 
 @router.post("/alerts/query")
@@ -187,7 +198,7 @@ def query_alerts(query: AlertQuery, alerts: AlertRelation):
     return query.flatten(alerts)
 
 
-@router.get("/nights/list")
+@router.get("/nights/list", dependencies=[cache_response])
 async def list_nights(
     alerts: AlertRelation,
 ):

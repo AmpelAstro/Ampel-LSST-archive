@@ -43,6 +43,11 @@ class Settings(BaseSettings):
         validation_alias="ALLOWED_ORIGINS",
         description="Allowed CORS origins",
     )
+    cache_max_age: int = Field(
+        300,
+        validation_alias="CACHE_MAX_AGE",
+        description="Max age for cacheable responses, in seconds",
+    )
     model_config = SettingsConfigDict(env_file=".env")
 
 

@@ -45,6 +45,7 @@ plotly = "^6.3.1"
 pandas = "^2.3.3"
 duckdb = "^1.4.2"
 pyarrow = "^22.0.0"
+hishel = "^1.1.6"
 
 [tool.poetry.extras]
 image = ["scipy"]
