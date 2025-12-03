@@ -100,6 +100,7 @@ class AlertQuery(BaseModel):
     exclude: list[Column] | None = None
     condition: str
     limit: int | None = None
+    order: str | None = None
     offset: int = 0
 
     def execute(
@@ -113,6 +114,8 @@ class AlertQuery(BaseModel):
         ).select(*self.columns())
         if self.limit is not None:
             q = q.limit(self.limit, offset=self.offset)
+        if self.order is not None:
+            q = q.order(self.order)
         return q
 
     def flatten(self, relation: DuckDBPyRelation) -> list[dict]:
