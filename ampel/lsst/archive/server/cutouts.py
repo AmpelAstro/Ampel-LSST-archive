@@ -34,7 +34,8 @@ def get_image_north_up_east_left(cutout_data: bytes) -> np.ndarray:
     # Calculate rotation angle from original WCS
     cd = rubinWCS.pixel_scale_matrix
     # Adjust angle to rotate image to North up, East left
-    theta = np.arctan2(cd[0, 1], cd[0, 0]) - np.pi / 2
+    # theta is nearly, but not exactly, -header['ROTPA']
+    theta = np.arctan2(cd[0, 1], cd[0, 0]) - np.pi
 
     # Get reference pixel and image dimensions
     crpix1, crpix2 = rubinWCS.wcs.crpix
