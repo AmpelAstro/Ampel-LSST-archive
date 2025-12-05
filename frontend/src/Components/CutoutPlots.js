@@ -1,3 +1,5 @@
+import Plot from "react-plotly.js";
+
 const initState = () => {
   return {
     data: [],
@@ -36,4 +38,14 @@ const initState = () => {
   };
 };
 
-export { initState };
+const Cutout = ({ payload }) => {
+  return (
+    <Plot
+      data={payload.data}
+      layout={payload.layout}
+      config={{ displayModeBar: false }}
+    />
+  );
+};
+
+export { initState, Cutout };

@@ -1,6 +1,5 @@
-import { initState } from "./CutoutPlots";
+import { initState, Cutout } from "./CutoutPlots";
 import { useState, useEffect } from "react";
-import Plot from "react-plotly.js";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import ReactJsonView from "@microlink/react-json-view";
@@ -28,16 +27,6 @@ const LinkBadge = ({ diaObjectId, ssObjectId }) => {
     );
   }
   return null;
-};
-
-const Cutout = ({ payload }) => {
-  return (
-    <Plot
-      data={payload.data}
-      layout={payload.layout}
-      config={{ displayModeBar: false }}
-    />
-  );
 };
 
 const AlertView = () => {
