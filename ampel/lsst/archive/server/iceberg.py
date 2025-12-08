@@ -1,8 +1,12 @@
 import functools
+import json
 import operator
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from functools import cache
+from logging import getLogger
+from pathlib import Path
+from tempfile import mktemp
 from typing import Annotated
 
 from duckdb import (
@@ -19,6 +23,8 @@ from fastapi import Depends
 from pydantic import AfterValidator, BaseModel
 
 from .settings import settings
+
+log = getLogger(__name__)
 
 
 @cache
@@ -48,10 +54,29 @@ def get_cursor(
     connection: Annotated[DuckDBPyConnection, Depends(get_duckdb)],
 ) -> Generator[DuckDBPyConnection, None, None]:
     cursor = connection.cursor()
+    if settings.enable_profiling:
+        profile_file = Path(mktemp(suffix=".json"))
+        cursor.execute("set enable_profiling='json';")
+        cursor.execute(f"set profile_output='{profile_file}';")
     try:
         yield cursor
     finally:
-        cursor.close()
+        if settings.enable_profiling:
+            with profile_file.open() as f:
+                profile = json.load(f)
+            stripped = {
+                k: v
+                for k, v in profile.items()
+                if k
+                in {
+                    "total_bytes_read",
+                    "latency",
+                    "cpu_time",
+                    "system_peak_buffer_memory",
+                }
+            }
+            log.warn(json.dumps(stripped, indent=2))
+            profile_file.unlink()
 
 
 Connection = Annotated[DuckDBPyConnection, Depends(get_cursor)]

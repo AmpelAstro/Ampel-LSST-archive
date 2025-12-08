@@ -48,6 +48,11 @@ class Settings(BaseSettings):
         validation_alias="CACHE_MAX_AGE",
         description="Max age for cacheable responses, in seconds",
     )
+    enable_profiling: bool = Field(
+        False,
+        validation_alias="ENABLE_PROFILING",
+        description="Enable query profiling",
+    )
     model_config = SettingsConfigDict(env_file=".env")
 
 
