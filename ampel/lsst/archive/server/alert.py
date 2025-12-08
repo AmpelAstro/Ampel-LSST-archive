@@ -1,29 +1,36 @@
+from collections.abc import Sequence
 from typing import Annotated, cast
 
+from duckdb import Expression
 from fastapi import Depends, HTTPException, status
 
 from ..alert_packet import Alert as LSSTAlert
-from .iceberg import Connection
+from .iceberg import (
+    AlertRelation,
+    ColumnExpression,
+    SQLExpression,
+    StarExpression,
+    flatten,
+)
 from .metrics import REQ_TIME
 
 REQ_TIME.labels("get_alert_from_iceberg").time()
 
 
-def get_alert_from_iceberg(
+def _get_alert_from_iceberg(
     diaSourceId: int,
-    connection: Connection,
+    alerts: AlertRelation,
+    columns: Sequence[Expression] = (StarExpression(),),
 ) -> LSSTAlert:
     if (
         record := next(
             iter(
-                connection.execute(
-                    "select * from alerts where diaSourceId = ? limit 1;",
-                    (diaSourceId,),
+                flatten(
+                    alerts.select(*columns)
+                    .filter(SQLExpression(f"diaSourceId = {diaSourceId}"))
+                    .limit(1)
                 )
-                .fetch_arrow_table()
-                .to_pylist()
-            ),
-            None,
+            )
         )
     ) is not None:
         return cast(LSSTAlert, record)
@@ -32,4 +39,32 @@ def get_alert_from_iceberg(
     )
 
 
+def get_alert_from_iceberg(
+    diaSourceId: int,
+    alerts: AlertRelation,
+) -> LSSTAlert:
+    return _get_alert_from_iceberg(
+        diaSourceId,
+        alerts,
+    )
+
+
+def get_cutouts_from_iceberg(
+    diaSourceId: int,
+    alerts: AlertRelation,
+) -> LSSTAlert:
+    return _get_alert_from_iceberg(
+        diaSourceId,
+        alerts,
+        columns=[
+            ColumnExpression("diaSourceId"),
+            ColumnExpression("cutoutScience"),
+            ColumnExpression("cutoutTemplate"),
+            ColumnExpression("cutoutDifference"),
+        ],
+    )
+
+
 AlertFromId = Annotated[LSSTAlert, Depends(get_alert_from_iceberg)]
+
+CutoutsFromId = Annotated[LSSTAlert, Depends(get_cutouts_from_iceberg)]

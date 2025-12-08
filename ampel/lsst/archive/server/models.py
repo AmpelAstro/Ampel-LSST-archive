@@ -235,7 +235,7 @@ StampData = Annotated[
 
 class AlertBase(BaseModel):
     diaSourceId: int
-    diaObjectId: int
+    # diaObjectId: int
     model_config = ConfigDict(
         ser_json_bytes="base64",
         val_json_bytes="base64",

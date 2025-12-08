@@ -7,8 +7,10 @@ from fastapi.responses import ORJSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from zstd_asgi import ZstdMiddleware
 
+from .alert import CutoutsFromId
 from .display import router as display_router
 from .iceberg import AlertQuery, AlertRelation
+from .models import AlertCutouts
 from .settings import settings
 
 # from .tokens import (
@@ -73,6 +75,17 @@ if settings.allowed_origins:
     )
 
 app.include_router(display_router, prefix="/display")
+
+
+@app.get(
+    "/alert/{diaSourceId}/cutouts",
+)
+def get_alert_cutouts(cutouts: CutoutsFromId) -> AlertCutouts:
+    """
+    Get image cutouts for the given alert.
+    """
+    return AlertCutouts(**cutouts)
+
 
 '''
 @app.get(
