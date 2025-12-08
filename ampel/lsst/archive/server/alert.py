@@ -14,9 +14,8 @@ from .iceberg import (
 )
 from .metrics import REQ_TIME
 
-REQ_TIME.labels("get_alert_from_iceberg").time()
 
-
+@REQ_TIME.labels("get_alert_from_iceberg").time()
 def _get_alert_from_iceberg(
     diaSourceId: int,
     alerts: AlertRelation,

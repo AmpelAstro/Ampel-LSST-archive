@@ -15,6 +15,7 @@ from hishel.fastapi import cache
 from .alert import AlertFromId
 from .cutouts import make_cutout_plotly
 from .iceberg import AlertQuery, AlertRelation, Connection, flatten
+from .metrics import REQ_TIME
 from .models import AlertDisplay, CutoutPlots
 from .settings import settings
 
@@ -58,8 +59,9 @@ def display_alert(alert: AlertFromId, cutouts: CutoutPlotsFromId):
     )
 
 
+@REQ_TIME.labels("get_photopoints_for_diaobject").time()
 @router.get("/diaobject/{diaObjectId}/summaryplots")
-async def get_photopoints_for_diaobject(
+def get_photopoints_for_diaobject(
     diaObjectId: int, connection: Connection
 ) -> ORJSONResponse:
     # append diaSource to history, unnest, uniqify, and project
@@ -218,6 +220,7 @@ def get_bandpass_templates(diaObjectId: int, connection: Connection):
     return template_plots
 
 
+@REQ_TIME.labels("query_alerts").time()
 @router.post("/alerts/query")
 def query_alerts(query: AlertQuery, alerts: AlertRelation):
     """Execute an arbitrary query against the alerts table"""
