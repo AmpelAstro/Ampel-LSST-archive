@@ -46,7 +46,6 @@ def get_duckdb() -> DuckDBPyConnection:
             ENDPOINT '{settings.catalog_endpoint_url}'
         );
     """)
-    conn.execute("use iceberg_catalog.lsst;")
     return conn
 
 
@@ -54,6 +53,7 @@ def get_cursor(
     connection: Annotated[DuckDBPyConnection, Depends(get_duckdb)],
 ) -> Generator[DuckDBPyConnection, None, None]:
     cursor = connection.cursor()
+    cursor.execute("use iceberg_catalog.lsst;")
     if settings.enable_profiling:
         profile_file = Path(mktemp(suffix=".json"))
         cursor.execute("set enable_profiling='json';")
