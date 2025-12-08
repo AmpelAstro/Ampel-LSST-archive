@@ -22,18 +22,13 @@ def _get_alert_from_iceberg(
     alerts: AlertRelation,
     columns: Sequence[Expression] = (StarExpression(),),
 ) -> LSSTAlert:
-    if (
-        record := next(
-            iter(
-                flatten(
-                    alerts.select(*columns)
-                    .filter(SQLExpression(f"diaSourceId = {diaSourceId}"))
-                    .limit(1)
-                )
-            )
-        )
-    ) is not None:
-        return cast(LSSTAlert, record)
+    matches = flatten(
+        alerts.select(*columns)
+        .filter(SQLExpression(f"diaSourceId = {diaSourceId}"))
+        .limit(1)
+    )
+    if len(matches) > 0:
+        return cast(LSSTAlert, matches[0])
     raise HTTPException(
         status.HTTP_404_NOT_FOUND, detail={"msg": f"no alert with {diaSourceId=}"}
     )
