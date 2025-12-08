@@ -61,7 +61,7 @@ def get_cursor(
     try:
         yield cursor
     finally:
-        if settings.enable_profiling:
+        if settings.enable_profiling and profile_file.exists():
             with profile_file.open() as f:
                 profile = json.load(f)
             stripped = {
