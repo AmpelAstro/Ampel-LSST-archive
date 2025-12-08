@@ -1,6 +1,7 @@
 import functools
 import operator
 from collections.abc import Generator, Sequence
+from contextlib import contextmanager
 from functools import cache
 from typing import Annotated
 
@@ -39,18 +40,25 @@ def get_duckdb() -> DuckDBPyConnection:
             ENDPOINT '{settings.catalog_endpoint_url}'
         );
     """)
+    conn.execute("use iceberg_catalog.lsst;")
     return conn
 
 
-def get_connection() -> DuckDBPyConnection:
-    return get_duckdb().execute("use iceberg_catalog.lsst;")
+def get_cursor(
+    connection: Annotated[DuckDBPyConnection, Depends(get_duckdb)],
+) -> Generator[DuckDBPyConnection, None, None]:
+    cursor = connection.cursor()
+    try:
+        yield cursor
+    finally:
+        cursor.close()
 
 
-Connection = Annotated[DuckDBPyConnection, Depends(get_connection)]
+Connection = Annotated[DuckDBPyConnection, Depends(get_cursor)]
 
 
-def get_relation() -> DuckDBPyRelation:
-    return get_duckdb().sql("from iceberg_catalog.lsst.alerts")
+def get_relation(cursor: Connection) -> DuckDBPyRelation:
+    return cursor.sql("from iceberg_catalog.lsst.alerts")
 
 
 AlertRelation = Annotated[DuckDBPyRelation, Depends(get_relation)]
@@ -82,8 +90,9 @@ def _get_names(rel: DuckDBPyRelation) -> list[str]:
 
 @cache
 def get_all_column_names() -> set[str]:
-    rel = get_relation()
-    return set(_get_names(rel))
+    with contextmanager(get_cursor)(get_duckdb()) as cursor:
+        rel = get_relation(cursor)
+        return set(_get_names(rel))
 
 
 def is_valid_column(name: str) -> str:
