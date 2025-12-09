@@ -3,7 +3,7 @@ from typing import Annotated
 import numpy as np
 import plotly.express as px
 from astropy.time import Time
-from duckdb import ColumnExpression, SQLExpression
+from duckdb import SQLExpression
 from fastapi import (
     APIRouter,
     Depends,
@@ -232,9 +232,14 @@ async def list_nights(
     alerts: AlertRelation,
 ):
     return flatten(
-        alerts.select(
-            SQLExpression("diaSource.visit // 100000 as night").alias("night")
-        )
-        .aggregate([ColumnExpression("night"), SQLExpression("count(*) as alerts")])
-        .order("night desc")
+        alerts.aggregate(
+            [
+                SQLExpression("diaSource.visit // 100000 as night").alias("night"),
+                SQLExpression("count(*) as alerts"),
+                SQLExpression("count(distinct diaSource.visit) as visits"),
+                SQLExpression(
+                    "max(diaSource.midpointMjdTai) - min(diaSource.midpointMjdTai) as day_span"
+                ),
+            ]
+        ).order("night desc")
     )
