@@ -23,6 +23,9 @@ RUN apt-get update && apt-get install -y build-essential libpq-dev && rm -rf /va
 COPY pyproject.toml poetry.lock ./
 RUN VIRTUAL_ENV=/venv poetry install --no-root --no-directory --all-extras --without dev
 
+# pre-install duckdb extensions
+RUN /venv/bin/python -c "import duckdb; duckdb.install_extension('httpfs'); duckdb.install_extension('iceberg')"
+
 COPY ampel ampel
 COPY README.md README.md
 RUN poetry build && /venv/bin/pip install dist/*.whl
@@ -35,6 +38,7 @@ ENV XDG_CACHE_HOME=/var/cache XDG_CONFIG_HOME=/var/cache MPLBACKEND=Agg
 
 RUN apt-get update && apt-get install -y libpq5 && rm -rf /var/lib/apt/lists/*
 
+COPY --from=builder /root/.duckdb /root/.duckdb
 COPY --from=builder /venv /venv
 CMD ["/venv/bin/uvicorn", "ampel.lsst.archive.server.app:app", "--host", "0.0.0.0", "--port", "80"]
 
