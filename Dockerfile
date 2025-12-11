@@ -24,7 +24,7 @@ COPY pyproject.toml poetry.lock ./
 RUN VIRTUAL_ENV=/venv poetry install --no-root --no-directory --all-extras --without dev
 
 # pre-install duckdb extensions
-RUN /venv/bin/python -c "import duckdb; duckdb.install_extension('httpfs'); duckdb.install_extension('iceberg')"
+RUN /venv/bin/python -c "import duckdb; for ext in ['httpfs', 'iceberg', 'avro']: duckdb.install_extension(ext); duckdb.load_extension(ext)"
 
 COPY ampel ampel
 COPY README.md README.md
