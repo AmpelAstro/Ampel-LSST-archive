@@ -36,4 +36,4 @@ jobs:
       # renovate: datasource=python-version depName=python versioning=python
       python-version: "3.14.2"
       # renovate: datasource=pypi depName=ruff
-      ruff-version: "0.7.3"
+      ruff-version: "0.14.14"
