@@ -82,7 +82,12 @@ Connection = Annotated[DuckDBPyConnection, Depends(get_cursor)]
 
 
 def get_relation(cursor: Connection) -> DuckDBPyRelation:
-    return cursor.sql("from iceberg_catalog.lsst.alerts")
+    sql = "from iceberg_catalog.lsst.alerts"
+    if settings.catalog_timestamp is not None:
+        sql += (
+            f" at (timestamp => timestamp '{settings.catalog_timestamp.isoformat()}')"
+        )
+    return cursor.sql(sql)
 
 
 AlertRelation = Annotated[DuckDBPyRelation, Depends(get_relation)]
