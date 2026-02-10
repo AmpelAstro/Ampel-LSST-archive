@@ -1,4 +1,5 @@
 import secrets
+from datetime import date
 
 from pydantic import Field, HttpUrl, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,11 @@ class Settings(BaseSettings):
         description="Size of alert chunks when streaming from S3",
     )
     catalog_endpoint_url: HttpUrl = Field(..., validation_alias="CATALOG_ENDPOINT_URL")
+    catalog_timestamp: date | None = Field(
+        None,
+        validation_alias="CATALOG_TIMESTAMP",
+        description="If set, queries the Iceberg catalog as of this timestamp",
+    )
     s3_endpoint: str | None = Field(None, validation_alias="S3_ENDPOINT")
     s3_bucket: str = Field("ampel-lsst-cutout-archive", validation_alias="S3_BUCKET")
     s3_insecure: bool = Field(False, validation_alias="S3_INSECURE")
