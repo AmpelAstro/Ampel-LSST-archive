@@ -26,14 +26,14 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.12"
 sqlalchemy = "~2.0.0"
-fastapi = {version = "^0.115.0"}
+fastapi = {version = "^0.129.0"}
 pydantic = {version = "^2"}
 PyJWT = {version = "^2.1.0", extras = ["server"]}
 astropy-healpix = "^1.0.0"
 pydantic-settings = {version = "^2.5.2"}
-uvicorn = {version = "^0.32.0"}
-sqlmodel = "^0.0.27"
-typer = "^0.19.2"
+uvicorn = {version = "^0.40.0"}
+sqlmodel = "^0.0.33"
+typer = "^0.23.0"
 orjson = "^3.11.3"
 zstd-asgi = "^1.0"
 scipy = {version = "^1.16.2", optional = true}
