@@ -9,7 +9,7 @@ from zstd_asgi import ZstdMiddleware
 
 from .alert import CutoutsFromId
 from .display import router as display_router
-from .iceberg import AlertQuery, AlertRelation
+from .iceberg import AlertQuery, AlertRelation, get_refs
 from .models import AlertCutouts
 from .settings import settings
 
@@ -86,6 +86,8 @@ def get_alert_cutouts(cutouts: CutoutsFromId) -> AlertCutouts:
     """
     return AlertCutouts(**cutouts)
 
+
+app.get("/refs")(get_refs)
 
 '''
 @app.get(

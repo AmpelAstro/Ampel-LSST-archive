@@ -3,12 +3,15 @@ import json
 import operator
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager
+from datetime import datetime
 from functools import cache
 from logging import getLogger
 from pathlib import Path
 from tempfile import mktemp
 from typing import Annotated
+from urllib.parse import urljoin
 
+import httpx
 from duckdb import (
     ColumnExpression,
     DuckDBPyConnection,
@@ -19,7 +22,7 @@ from duckdb import (
     connect,
 )
 from duckdb.sqltypes import DuckDBPyType
-from fastapi import Depends
+from fastapi import Depends, HTTPException, Query, status
 from pydantic import AfterValidator, BaseModel
 
 from .settings import settings
@@ -81,12 +84,57 @@ def get_cursor(
 Connection = Annotated[DuckDBPyConnection, Depends(get_cursor)]
 
 
-def get_relation(cursor: Connection) -> DuckDBPyRelation:
-    sql = "from iceberg_catalog.lsst.alerts"
-    if settings.catalog_timestamp is not None:
-        sql += (
-            f" at (timestamp => timestamp '{settings.catalog_timestamp.isoformat()}')"
+async def get_refs():
+    response = httpx.get(
+        urljoin(str(settings.catalog_endpoint_url), "v1/namespaces/lsst/tables/alerts")
+    )
+    response.raise_for_status()
+    metadata = response.json()["metadata"]
+    refs = {snapshot["snapshot-id"]: snapshot for snapshot in metadata["snapshots"]}
+    return [
+        {
+            "name": name,
+            "type": ref["type"],
+            "snapshot": refs.get(ref["snapshot-id"]),
+        }
+        for name, ref in metadata["refs"].items()
+    ]
+
+
+async def get_snapshot_id(
+    branch: Annotated[str | None, Query()] = None,
+    tag: Annotated[str | None, Query()] = None,
+    timestamp: Annotated[datetime | None, Query()] = None,
+) -> int | datetime | None:
+    if timestamp is not None:
+        return timestamp
+    if tag is not None or branch is not None:
+        response = httpx.get(
+            urljoin(
+                str(settings.catalog_endpoint_url), "v1/namespaces/lsst/tables/alerts"
+            )
         )
+        response.raise_for_status()
+        metadata = response.json()
+        ref = metadata["metadata"]["refs"].get(branch or tag)
+        if ref is None:
+            msg = f"Branch '{branch}' not found" if branch else f"Tag '{tag}' not found"
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"msg": msg}
+            )
+        return ref["snapshot-id"]
+    return None
+
+
+def get_relation(
+    cursor: Connection,
+    snapshot_id: Annotated[int | datetime | None, Depends(get_snapshot_id)] = None,
+) -> DuckDBPyRelation:
+    sql = "from iceberg_catalog.lsst.alerts"
+    if isinstance(snapshot_id, int):
+        sql += f" at (version => {snapshot_id})"
+    elif isinstance(snapshot_id, datetime):
+        sql += f" at (timestamp => timestamp '{snapshot_id.isoformat()}')"
     return cursor.sql(sql)
 
 
