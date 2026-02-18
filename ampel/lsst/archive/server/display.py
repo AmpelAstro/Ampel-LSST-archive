@@ -208,10 +208,13 @@ def get_bandpass_templates(diaObjectId: int, connection: Connection):
         # NB: execute one query per band to avoid pulling all blobs into memory;
         # duckdb iceberg plugin doesn't push down any column filters except
         # _single_ range and equality
-        band, blob = connection.execute(
+        row = connection.execute(
             "select diaSource.band, cutoutTemplate from alerts where diaSourceId=? limit 1",
             params,
         ).fetchone()
+        if row is None:
+            continue
+        band, blob = row
         template_plots[band] = make_cutout_plotly(
             f"template {band}",
             blob,
@@ -233,7 +236,7 @@ async def list_nights(
 ):
     return flatten(
         alerts.aggregate(
-            [
+            [  # type: ignore[arg-type]
                 SQLExpression("diaSource.visit // 100000 as night").alias("night"),
                 SQLExpression("count(*) as alerts"),
                 SQLExpression("count(distinct diaSource.visit) as visits"),

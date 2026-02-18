@@ -158,7 +158,7 @@ def _names(name: str, dtype: DuckDBPyType) -> Generator[str, None, None]:
 
 
 def _get_names(rel: DuckDBPyRelation) -> list[str]:
-    names = []
+    names: list[str] = []
     for name, dtype in zip(rel.columns, rel.types, strict=True):
         names.extend(_names(name, dtype))
 
@@ -183,7 +183,7 @@ Column = Annotated[str, AfterValidator(is_valid_column)]
 
 class AlertQuery(BaseModel):
     include: list[Column] | None = None
-    exclude: list[Column] | None = None
+    exclude: tuple[Column] | None = None
     condition: str
     limit: int | None = None
     order: str | None = None
@@ -209,6 +209,10 @@ class AlertQuery(BaseModel):
 
     def columns(self) -> Sequence[Expression]:
         if self.include is None:
-            return (StarExpression(exclude=self.exclude or []),)
+            return [
+                StarExpression(exclude=self.exclude)
+                if self.exclude
+                else StarExpression()
+            ]
         exclude_set = set(self.exclude or [])
         return [ColumnExpression(col) for col in self.include if col not in exclude_set]
