@@ -647,7 +647,7 @@ def health_check(alerts: AlertRelation):
         len(
             AlertQuery(
                 include=["diaSourceId"], condition="diaSourceId > 0", limit=1
-            ).flatten(AlertRelation)
+            ).flatten(alerts)
         )
         == 1
     )
