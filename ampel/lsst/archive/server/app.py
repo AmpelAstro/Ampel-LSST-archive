@@ -84,7 +84,7 @@ def get_alert_cutouts(cutouts: CutoutsFromId) -> AlertCutouts:
     """
     Get image cutouts for the given alert.
     """
-    return AlertCutouts(**cutouts)
+    return AlertCutouts.model_validate(cutouts)
 
 
 app.get("/refs")(get_refs)

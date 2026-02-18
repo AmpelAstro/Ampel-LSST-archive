@@ -30,7 +30,7 @@ def _get_cutout_plots(
         **{
             k: make_cutout_plotly(
                 f"{k} {alert['diaSource']['band']}",
-                alert[f"cutout{k.capitalize()}"],
+                alert[f"cutout{k.capitalize()}"],  # type: ignore[literal-required]
                 sigma,
             ).to_plotly_json()
             for k in ["template", "science", "difference"]
