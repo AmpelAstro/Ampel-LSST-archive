@@ -14,8 +14,9 @@ from pydantic import (
     model_validator,
 )
 
-from ..models import NSIDE
 from ..types import FilterClause
+
+NSIDE = 1 << 24
 
 
 class StrictModel(BaseModel):
