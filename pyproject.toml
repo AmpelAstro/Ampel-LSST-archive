@@ -62,6 +62,7 @@ pytest-asyncio = "^0.24.0"
 scipy-stubs = "^1.16.2.4"
 alembic = "^1.17.0"
 alembic-utils = "^0.8.8"
+pyarrow-stubs = "^20.0.0.20251215"
 
 [tool.poetry.scripts]
 update-lsst-archive = 'ampel.lsst.archive.update:run'
@@ -91,6 +92,7 @@ packages = [
 ]
 exclude = [
     "ampel/lsst/archive/server/tokens.py",
+    "ampel/lsst/archive/server/streams.py",
 ]
 
 [[tool.mypy.overrides]]
@@ -98,6 +100,8 @@ module = [
   "astropy.*",
   "astropy_healpix.*",
   "zstd_asgi",
+  "plotly.*",
+  "colorspacious",
 ]
 ignore_missing_imports = true
 
@@ -105,6 +109,7 @@ ignore_missing_imports = true
 target-version = "py312"
 exclude = [
     "ampel/lsst/archive/server/tokens.py",
+    "ampel/lsst/archive/server/streams.py",
     "tests/test_server.py",
 ]
 
