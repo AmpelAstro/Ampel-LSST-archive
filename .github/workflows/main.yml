@@ -21,7 +21,7 @@ jobs:
   ci:
     uses: AmpelProject/Ampel-interface/.github/workflows/ci.yml@c855e93ae95c955ba292f88413455462398a8c9a # ci-py12-v10
     with:
-      mongo: true
+      mongo: false
       format: true
       lint: true
       # renovate: datasource=python-version depName=python

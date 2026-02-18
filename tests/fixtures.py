@@ -26,11 +26,13 @@ def _docker(pytestconfig):
 @pytest.fixture(scope="session")
 def warehouse_dir(tmp_path_factory) -> Path:
     """Fixture to create a temporary directory for the warehouse."""
-    return tmp_path_factory.mktemp("warehouse")
+    tmp: Path = tmp_path_factory.mktemp("warehouse")
+    tmp.chmod(0o777)  # make it writable by any user (e.g., in Docker)
+    return tmp
 
 
 @pytest.fixture(scope="session")
-def catalog(_docker, warehouse_dir):
+def catalog(_docker, warehouse_dir: Path):
     """Start an Iceberg REST catalog server in a Docker container and yield its URL."""
     port = 8181
     with (
@@ -70,8 +72,17 @@ def catalog(_docker, warehouse_dir):
 
 
 @pytest.fixture(scope="session")
-def _iceberg(catalog, warehouse_dir):
+def _iceberg(catalog, warehouse_dir: Path):
     """Fixture to create a DuckDB connection to the Iceberg catalog."""
+
+    # duckdb fileio expects directory structure to exist when creating tables
+    table_dir = warehouse_dir / "lsst" / "alerts"
+    table_dir.mkdir(parents=True)
+    for subdir in ["data", "metadata"]:
+        p = table_dir / subdir
+        p.mkdir()  # "On some systems, mode is ignored"
+        p.chmod(0o777)
+
     cursor = duckdb.connect()
     cursor.execute(f"""
         ATTACH 'warehouse' AS iceberg_catalog(
@@ -81,12 +92,6 @@ def _iceberg(catalog, warehouse_dir):
     """)
     cursor.execute("create schema iceberg_catalog.lsst;")
     cursor.execute("use iceberg_catalog.lsst;")
-
-    # duckdb fileio expects directory structure to exist when creating tables
-    table_dir = warehouse_dir / "lsst" / "alerts"
-    table_dir.mkdir(parents=True)
-    (table_dir / "data").mkdir()
-    (table_dir / "metadata").mkdir()
 
     cursor.execute(
         """
