@@ -54,7 +54,7 @@ def avro_type_to_pyarrow_type(
 
 def avro_schema_to_pyarrow_schema(
     avro_schema: dict,
-    metadata: dict[str, str] | None = None,
+    metadata: dict[bytes | str, bytes | str] | None = None,
 ) -> pa.Schema:
     dtype, nullable = avro_type_to_pyarrow_type(
         avro_schema,
