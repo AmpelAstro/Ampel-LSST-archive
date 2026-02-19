@@ -6,6 +6,7 @@ import duckdb
 import httpx
 import pytest
 from fastapi import status
+from pyiceberg.catalog import load_catalog
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import HttpWaitStrategy, LogMessageWaitStrategy
 
@@ -72,7 +73,7 @@ def catalog(_docker, warehouse_dir: Path):
 
 
 @pytest.fixture(scope="session")
-def _iceberg(catalog, warehouse_dir: Path):
+def _alert_table(catalog, warehouse_dir: Path):
     """Fixture to create a DuckDB connection to the Iceberg catalog."""
 
     # duckdb fileio expects directory structure to exist when creating tables
@@ -97,7 +98,16 @@ def _iceberg(catalog, warehouse_dir: Path):
         """
         create table iceberg_catalog.lsst.alerts
         as (
-            select * from read_parquet('tests/test-data/diaObject.313853499427782700.parquet')
+            select * from read_parquet('tests/test-data/diaObject.313853499427782700.parquet') limit 10
+        );
+        """
+    )
+
+    # create a second snapshot
+    cursor.execute(
+        """
+        insert into iceberg_catalog.lsst.alerts (
+            select * from read_parquet('tests/test-data/diaObject.313853499427782700.parquet') offset 10
         );
         """
     )
@@ -105,8 +115,32 @@ def _iceberg(catalog, warehouse_dir: Path):
     return cursor
 
 
+@pytest.fixture(scope="session")
+def pyiceberg_catalog(catalog, warehouse_dir: Path):
+    """Fixture to create a PyIceberg connection to the Iceberg catalog."""
+
+    return load_catalog(
+        "iceberg",
+        uri=catalog,
+        warehouse=str(warehouse_dir.as_posix()),
+    )
+
+
+@pytest.fixture(scope="session")
+def alert_table_branch(pyiceberg_catalog, _alert_table):
+    """Fixture to create a table with multiple branches."""
+
+    table = pyiceberg_catalog.load_table("lsst.alerts")
+    snapshots = list(table.snapshots())
+    assert len(table.snapshots()) == 2, "Expected 2 snapshots in the table"
+    branch_name = "test_branch"
+    with table.manage_snapshots() as ctx:
+        ctx.create_branch(snapshots[0].snapshot_id, branch_name)
+    return branch_name
+
+
 @pytest.fixture
-def _mock_iceberg(catalog, _iceberg, monkeypatch):
+def _mock_iceberg(catalog, _alert_table, monkeypatch):
     monkeypatch.setattr(settings, "catalog_endpoint_url", catalog)
 
     get_duckdb.cache_clear()
