@@ -40,7 +40,7 @@ def update_table_files(
     """
     with table.transaction() as txn:
         file_scan = table.scan(row_filter=file_filter)
-        files = file_scan.plan_files()
+        files = list(file_scan.plan_files())
 
         log.info(f"Found {len(files)} files to update")
 

@@ -14,8 +14,9 @@ from pydantic import (
     model_validator,
 )
 
-from ..models import NSIDE
 from ..types import FilterClause
+
+NSIDE = 1 << 24
 
 
 class StrictModel(BaseModel):
@@ -154,7 +155,7 @@ class CandidateFilterable(StrictModel):
 
 class AlertQuery(CandidateFilterable):
     cone: ConeConstraint | None = None
-    jd: TimeConstraint = TimeConstraint()  # type: ignore[call-arg]
+    jd: TimeConstraint = TimeConstraint()
     candidate: FilterClause | None = None
     chunk_size: int = Field(
         100, ge=0, le=10000, description="Number of alerts per chunk"
@@ -170,7 +171,7 @@ class AlertQuery(CandidateFilterable):
 
 class ObjectQuery(CandidateFilterable):
     objectId: str | list[str]
-    jd: TimeConstraint = TimeConstraint()  # type: ignore[call-arg]
+    jd: TimeConstraint = TimeConstraint()
     candidate: FilterClause | None = None
     chunk_size: int = Field(
         100, ge=0, le=10000, description="Number of alerts per chunk"

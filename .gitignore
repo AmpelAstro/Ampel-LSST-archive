@@ -1,7 +1,11 @@
-Ampel_ZTF.egg-info
+.venv/
+*.egg-info
 __pycache__
+/build/
+/dist/
 .pytest_cache
 .mypy_cache
 .vscode
-dist
-*.avro
+*.swp
+*.swo
+.DS_Store

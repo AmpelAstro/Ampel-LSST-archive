@@ -1,78 +1,69 @@
-[tool.poetry]
+[project]
 name = "ampel-lsst-archive"
 version = "0.0.1-alpha.0"
 description = "LSST alert archive for the Ampel system"
+requires-python = ">=3.12, <4"
 authors = [
-    "Jakob van Santen <jakob.van.santen@desy.de>",
+    { name = "Jakob van Santen", email = "jakob.van.santen@desy.de" },
 ]
 maintainers = [
-    "Jakob van Santen <jakob.van.santen@desy.de>"
+    { name = "Jakob van Santen", email = "jakob.van.santen@desy.de" },
 ]
 license = "BSD-3-Clause"
 readme = "README.md"
-homepage = "https://ampelproject.github.io"
-repository = "https://github.com/AmpelProject/Ampel-LSST-archive"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Scientific/Engineering :: Astronomy",
     "Typing :: Typed",
 ]
-packages = [
-    {include = "ampel"}
+dependencies = [
+    "fastapi (>=0.129.0,<0.130.0)",
+    "pydantic-settings (>=2.13.0,<3.0.0)",
+    "uvicorn (>=0.41.0,<0.42.0)",
+    "zstd-asgi (>=1.0,<2.0)",
+    "colorspacious (>=1.1.2,<2.0.0)",
+    "astropy-healpix (>=1.1.3,<2.0.0)",
+    "plotly (>=6.5.2,<7.0.0)",
+    "pyarrow (>=23.0.1,<24.0.0)",
+    "hishel (>=1.1.9,<2.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "prometheus-fastapi-instrumentator (>=7.1.0,<8.0.0)",
+    "duckdb (>=1.4.4,<2.0.0)",
+    "orjson (>=3.11.7,<4.0.0)"
 ]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-sqlalchemy = "~2.0.0"
-fastapi = {version = "^0.115.0"}
-pydantic = {version = "^2"}
-PyJWT = {version = "^2.1.0", extras = ["server"]}
-astropy-healpix = "^1.0.0"
-pydantic-settings = {version = "^2.5.2"}
-uvicorn = {version = "^0.32.0"}
-sqlmodel = "^0.0.27"
-typer = "^0.19.2"
-orjson = "^3.11.3"
-zstd-asgi = "^1.0"
-scipy = {version = "^1.16.2", optional = true}
-async-lru = "^2.0.5"
-colorspacious = "^1.1.2"
-prometheus-async = "^25.1.0"
-prometheus-fastapi-instrumentator = "^7.1.0"
-plotly = "^6.3.1"
-pandas = "^2.3.3"
-duckdb = "^1.4.2"
-pyarrow = "^22.0.0"
-hishel = "^1.1.6"
-httpx = "^0.27.2"
+[project.optional-dependencies]
+image = ["scipy (>=1.17.0,<2.0.0)"]
+pyiceberg = ["pyiceberg (>=0.11.0,<0.12.0)"]
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.2,<10.0.0)",
+    "mypy (>=1.13,<2.0)",
+    "scipy-stubs (>=1.17.0.2,<2.0.0.0)",
+    "pyarrow-stubs (>=20.0.0.20251215,<21.0.0.0)",
+    "testcontainers (>=4.14.1,<5.0.0)",
+    "pytest-asyncio (>=1.3.0,<2.0.0)",
+]
 
-[tool.poetry.extras]
-image = ["scipy"]
+[tool.poetry]
+packages = [
+    {include = "ampel"},
+]
+exclude = ["ampel/py.typed"]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.3"
-pytest-cov = "^6.0.0"
-coverage = {extras = ["toml"], version = "^7.6.4"}
-mypy = "^1.13.0"
-pytest-timeout = "^2.3.1"
-pytest-mock = "^3.14.0"
-pytest-asyncio = "^0.24.0"
-scipy-stubs = "^1.16.2.4"
-alembic = "^1.17.0"
-alembic-utils = "^0.8.8"
-
-[tool.poetry.scripts]
-update-lsst-archive = 'ampel.lsst.archive.update:run'
-init-lsst-archive = 'ampel.lsst.archive.provision:main'
+[project.urls]
+homepage = "https://ampelproject.github.io"
+repository = "https://github.com/AmpelAstro/Ampel-LSST-archive"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.0.0", "setuptools >= 40.6.0", "wheel"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.coverage.run]
-relative_files = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -85,139 +76,68 @@ filterwarnings = [
 
 [tool.mypy]
 namespace_packages = true
-show_error_codes = true
 packages = [
   "ampel"
 ]
 exclude = [
     "ampel/lsst/archive/server/tokens.py",
+    "ampel/lsst/archive/server/streams.py",
 ]
+plugins = [
+  "pydantic.mypy",
+]
+show_error_codes = true
+warn_unused_ignores = true
+check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 module = [
   "astropy.*",
   "astropy_healpix.*",
   "zstd_asgi",
+  "plotly.*",
+  "colorspacious",
 ]
 ignore_missing_imports = true
 
 [tool.ruff]
+line-length = 88
 target-version = "py312"
 exclude = [
     "ampel/lsst/archive/server/tokens.py",
-    "tests/test_server.py",
+    "ampel/lsst/archive/server/streams.py",
 ]
 
 [tool.ruff.lint]
 select = [
-    "E4",
-    "E7",
-    "E9",
-    "F",
-    "I",
-    "UP",
-    "B",
-    "DTZ",
-    "T20",
-    "PT",
-    "RET",
-    "SLF",
-    "SIM",
-    # # "ARG", # sometimes your arguments have to conform to an interface
-    # # "ERA", # seems to prohibit all comments, that's bad
-    "PL",
-    "PERF",
-    "RUF",
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "DTZ",  # datetimez
+    "T20",  # print
+    "PT",   # pytest-style
+    "RET",  # return
+    "SLF",  # self
+    "SIM",  # simplify
+    "ARG",  # unused-arguments
+    "PL",   # pylint
+    "PERF", # perflint
+    "RUF",  # ruff
 ]
 ignore = [
     "PLR09", # too many (arguments|branches)
+    "E501",  # line too long (handled by ruff format)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"ampel/lsst/archive/server/*" = ["B008"]
-"migrations/*" = ["T201"]
-"tests/*" = ["T201", "SLF001", "PLR2004", "PERF", "RUF018"]
-
-
-[tool.alembic]
-
-# path to migration scripts.
-# this is typically a path given in POSIX (e.g. forward slashes)
-# format, relative to the token %(here)s which refers to the location of this
-# ini file
-script_location = "%(here)s/alembic"
-
-# template used to generate migration file names; The default value is %%(rev)s_%%(slug)s
-# Uncomment the line below if you want the files to be prepended with date and time
-# see https://alembic.sqlalchemy.org/en/latest/tutorial.html#editing-the-ini-file
-# for all available tokens
-# file_template = "%%(year)d_%%(month).2d_%%(day).2d_%%(hour).2d%%(minute).2d-%%(rev)s_%%(slug)s"
-
-# additional paths to be prepended to sys.path. defaults to the current working directory.
-prepend_sys_path = [
-    "."
+"tests/*" = [
+    "RUF018",  # assignment in assert is just fine in tests
+    "SLF001",  # allow private member access
+    "T201",    # allow print()
+    "PLR2004", # magic numbers are fine in tests
 ]
 
-# timezone to use when rendering the date within the migration file
-# as well as the filename.
-# If specified, requires the tzdata library which can be installed by adding
-# `alembic[tz]` to the pip requirements.
-# string value is passed to ZoneInfo()
-# leave blank for localtime
-# timezone =
-
-# max length of characters to apply to the "slug" field
-# truncate_slug_length = 40
-
-# set to 'true' to run the environment during
-# the 'revision' command, regardless of autogenerate
-# revision_environment = false
-
-# set to 'true' to allow .pyc and .pyo files without
-# a source .py file to be detected as revisions in the
-# versions/ directory
-# sourceless = false
-
-# version location specification; This defaults
-# to <script_location>/versions.  When using multiple version
-# directories, initial revisions must be specified with --version-path.
-# version_locations = [
-#    "%(here)s/alembic/versions",
-#    "%(here)s/foo/bar"
-# ]
-
-
-# set to 'true' to search source files recursively
-# in each "version_locations" directory
-# new in Alembic version 1.10
-# recursive_version_locations = false
-
-# the output encoding used when revision files
-# are written from script.py.mako
-# output_encoding = "utf-8"
-
-# This section defines scripts or Python functions that are run
-# on newly generated revision scripts.  See the documentation for further
-# detail and examples
-# [[tool.alembic.post_write_hooks]]
-# format using "black" - use the console_scripts runner,
-# against the "black" entrypoint
-# name = "black"
-# type = "console_scripts"
-# entrypoint = "black"
-# options = "-l 79 REVISION_SCRIPT_FILENAME"
-#
-# [[tool.alembic.post_write_hooks]]
-# lint with attempts to fix using "ruff" - use the module runner, against the "ruff" module
-# name = "ruff"
-# type = "module"
-# module = "ruff"
-# options = "check --fix REVISION_SCRIPT_FILENAME"
-#
-# [[tool.alembic.post_write_hooks]]
-# Alternatively, use the exec runner to execute a binary found on your PATH
-# name = "ruff"
-# type = "exec"
-# executable = "ruff"
-# options = "check --fix REVISION_SCRIPT_FILENAME"
-
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
