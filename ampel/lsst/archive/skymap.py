@@ -1,7 +1,7 @@
 import bisect
 import math
 from collections import defaultdict
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Iterator
 
 
 def deres(nside, ipix, min_nside=1):
@@ -38,18 +38,17 @@ class multirange[T: int]:
     """
 
     def __init__(self, intervals: Iterable[tuple[T, T]] = []):
+        self.lefts: list[T] = []
+        self.rights: list[T] = []
         if intervals:
             self.lefts, self.rights = (
                 list(side) for side in zip(*intervals, strict=False)
             )
-        else:
-            self.lefts = []
-            self.rights = []
 
     def __len__(self) -> int:
         return len(self.lefts)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[T, T]]:
         return zip(self.lefts, self.rights, strict=False)
 
     def add(self, left: T, right: T):
