@@ -2,18 +2,9 @@ import httpx
 import pytest
 from fastapi import status
 
-from ampel.lsst.archive.server.app import app
-
-
-@pytest.fixture
-def integration_client(_mock_iceberg):
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
-    )
-
 
 @pytest.mark.asyncio
-async def test_query(integration_client):
+async def test_query(integration_client: httpx.AsyncClient):
     response = await integration_client.post(
         "/display/alerts/query",
         json={"condition": "true", "include": ["diaSourceId"]},
@@ -24,7 +15,7 @@ async def test_query(integration_client):
 
 
 @pytest.mark.asyncio
-async def test_refs(integration_client, alert_table_branch):
+async def test_refs(integration_client: httpx.AsyncClient, alert_table_branch):
     response = await integration_client.get(
         "/refs",
     )

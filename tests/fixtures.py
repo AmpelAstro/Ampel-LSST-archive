@@ -10,6 +10,7 @@ from pyiceberg.catalog import load_catalog
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import HttpWaitStrategy, LogMessageWaitStrategy
 
+from ampel.lsst.archive.server.app import app
 from ampel.lsst.archive.server.iceberg import get_duckdb
 from ampel.lsst.archive.server.settings import settings
 
@@ -146,3 +147,10 @@ def _mock_iceberg(catalog, _alert_table, monkeypatch):
     get_duckdb.cache_clear()
     yield
     get_duckdb.cache_clear()
+
+
+@pytest.fixture
+def integration_client(_mock_iceberg):
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+    )
