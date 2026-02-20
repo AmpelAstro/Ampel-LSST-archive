@@ -1,6 +1,8 @@
+import itertools
 import math
 from base64 import b64encode
 from datetime import datetime
+from functools import cached_property
 from typing import Annotated, Any, Literal, Self
 
 from astropy.time import Time
@@ -14,6 +16,8 @@ from pydantic import (
     model_validator,
 )
 
+from ..healpix_cone_search import ranges_for_cone
+from ..skymap import gen_ranges, multirange
 from ..types import FilterClause
 
 NSIDE = 1 << 24
@@ -138,15 +142,22 @@ class ConeConstraint(StrictModel):
         ..., gt=0, lt=10, description="Radius of search cone in degrees"
     )
 
+    @cached_property
+    def ranges(self) -> multirange[int]:
+        """Get range of pixel indices covered by this region, scaled to NSIDE=2^24"""
+        nside, ranges = ranges_for_cone(self.ra, self.dec, self.radius, max_nside=NSIDE)
+        scale = (NSIDE // nside) ** 2
+        return multirange((item[0] * scale, item[1] * scale) for item in ranges)
+
 
 class TimeConstraint(StrictModel):
-    lt: float | None = Field(None, alias="$lt")
-    gt: float | None = Field(None, alias="$gt")
+    lt: AstropyTime | None = Field(None, alias="$lt")
+    gt: AstropyTime | None = Field(None, alias="$gt")
 
 
 class StrictTimeConstraint(TimeConstraint):
-    lt: float = Field(..., alias="$lt")
-    gt: float = Field(..., alias="$gt")
+    lt: AstropyTime = Field(..., alias="$lt")
+    gt: AstropyTime = Field(..., alias="$gt")
 
 
 class CandidateFilterable(StrictModel):
@@ -210,12 +221,29 @@ class HEALpixMapRegion(StrictModel):
             raise ValueError("nside must be a power of 2")
         return nside
 
+    @property
+    def ranges(self) -> multirange[int]:
+        """Get range of pixel indices covered by this region, scaled to NSIDE=2^24"""
+        scale = (NSIDE // self.nside) ** 2
+        return multirange(
+            (item[0] * scale, item[1] * scale) for item in gen_ranges(self.pixels)
+        )
+
 
 class HEALpixMapQuery(AlertChunkQueryBase, MapQueryBase, HEALpixMapRegion): ...
 
 
-class HEALpixRegionQueryBase(MapQueryBase):
-    regions: list[HEALpixMapRegion]
+class HEALpixConstraint(StrictModel):
+    regions: Annotated[list[HEALpixMapRegion], Field(min_length=1)]
+
+    @cached_property
+    def ranges(self) -> multirange[int]:
+        return multirange(
+            itertools.chain(*(iter(region.ranges) for region in self.regions))
+        )
+
+
+class HEALpixRegionQueryBase(MapQueryBase, HEALpixConstraint): ...
 
 
 class HEALpixRegionQuery(AlertChunkQueryBase, HEALpixRegionQueryBase): ...

@@ -25,6 +25,7 @@ from duckdb.sqltypes import DuckDBPyType
 from fastapi import Depends, HTTPException, Query, status
 from pydantic import AfterValidator, BaseModel
 
+from .models import ConeConstraint, HEALpixConstraint, TimeConstraint
 from .settings import settings
 
 log = getLogger(__name__)
@@ -184,19 +185,63 @@ Column = Annotated[str, AfterValidator(is_valid_column)]
 class AlertQuery(BaseModel):
     include: list[Column] | None = None
     exclude: tuple[Column] | None = None
-    condition: str
+    condition: str | None
+    location: None | ConeConstraint | HEALpixConstraint = None
+    time: None | TimeConstraint = None
     limit: int | None = None
     order: str | None = None
     offset: int = 0
+
+    def location_constraint(self) -> Expression | None:
+        if self.location is None:
+            return None
+        ranges = self.location.ranges
+        pix = ColumnExpression("_hpx")
+        # demand that the pixel is in one of the desired ranges, and add a
+        # nominally redundant condition to help the query planner exclude
+        # column groups that can't possibly contain any matching rows
+        return (
+            functools.reduce(
+                operator.or_,
+                ((pix > span[0]) & (pix < span[1]) for span in ranges),  # type: ignore[operator]
+            )
+            & (pix > ranges.lefts[0])  # type: ignore[operator]
+            & (pix < ranges.rights[-1])  # type: ignore[operator]
+        )
+
+    def time_constraint(self) -> Expression | None:
+        if self.time is None:
+            return None
+        conditions = []
+        epoch = ColumnExpression("diaSource.midpointMjdTai")
+        if self.time.gt is not None:
+            conditions.append(epoch > self.time.gt.mjd_tai())  # type: ignore[operator]
+        if self.time.lt is not None:
+            conditions.append(epoch < self.time.lt.mjd_tai())  # type: ignore[operator]
+        return functools.reduce(operator.and_, conditions) if conditions else None
+
+    def get_condition(self) -> Expression | None:
+        conditions = []
+        if self.condition is not None:
+            conditions.append(SQLExpression(self.condition))
+        location_condition = self.location_constraint()
+        if location_condition is not None:
+            conditions.append(location_condition)
+        time_condition = self.time_constraint()
+        if time_condition is not None:
+            conditions.append(time_condition)
+        if conditions:
+            return functools.reduce(operator.and_, conditions)
+        return None
 
     def execute(
         self,
         relation: DuckDBPyRelation,
     ) -> DuckDBPyRelation:
         q = (
-            relation
-            if self.condition is None
-            else relation.filter(SQLExpression(self.condition))
+            relation.filter(condition)
+            if (condition := self.get_condition())
+            else relation
         ).select(*self.columns())
         if self.limit is not None:
             q = q.limit(self.limit, offset=self.offset)
