@@ -79,16 +79,24 @@ def catalog(_docker, warehouse_dir: Path):
 
 
 @pytest.fixture(scope="session")
-def _alert_table(catalog, warehouse_dir: Path):
+def ensure_table_dirs(warehouse_dir: Path):
+    def ensure_table_dirs(namespace: str, table: str):
+        # duckdb fileio expects directory structure to exist when creating tables
+        table_dir = warehouse_dir / namespace / table
+        table_dir.mkdir(parents=True)
+        for subdir in ["data", "metadata"]:
+            p = table_dir / subdir
+            p.mkdir()  # "On some systems, mode is ignored"
+            p.chmod(0o777)
+
+    return ensure_table_dirs
+
+
+@pytest.fixture(scope="session")
+def _alert_table(catalog, ensure_table_dirs):
     """Fixture to create a DuckDB connection to the Iceberg catalog."""
 
-    # duckdb fileio expects directory structure to exist when creating tables
-    table_dir = warehouse_dir / "lsst" / "alerts"
-    table_dir.mkdir(parents=True)
-    for subdir in ["data", "metadata"]:
-        p = table_dir / subdir
-        p.mkdir()  # "On some systems, mode is ignored"
-        p.chmod(0o777)
+    ensure_table_dirs("lsst", "alerts")
 
     cursor = duckdb.connect(config={"allow_unsigned_extensions": "true"})
     for ext in "httpfs", "avro", "spatial":
@@ -170,6 +178,11 @@ def integration_client(_mock_iceberg):
 
 
 @pytest.fixture
-def alert_relation(_mock_iceberg):
+def cursor(_mock_iceberg):
     with contextmanager(get_cursor)(get_duckdb()) as cursor:
-        yield get_relation(cursor)
+        yield cursor
+
+
+@pytest.fixture
+def alert_relation(cursor):
+    return get_relation(cursor)

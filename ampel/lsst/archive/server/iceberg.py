@@ -285,6 +285,9 @@ class AlertQuery(StrictModel):
     def flatten(self, relation: DuckDBPyRelation) -> list[dict]:
         return flatten(self.execute(relation))
 
+    def persist_to(self, relation: DuckDBPyRelation, table_name: str) -> None:
+        return self.execute(relation).create(table_name)
+
     def columns(self) -> Sequence[Expression]:
         if self.include is None:
             return [
