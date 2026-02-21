@@ -15,6 +15,37 @@ async def test_query(integration_client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_exclude(integration_client: httpx.AsyncClient):
+    response = await integration_client.post(
+        "/display/alerts/query",
+        json={
+            "condition": "diaSource.reliability > 0.5",
+            "limit": 1,
+            "exclude": [
+                "cutoutScience",
+                "cutoutTemplate",
+                "cutoutDifference",
+            ],
+        },
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert set(data[0].keys()) == {
+        "diaSourceId",
+        "diaSource",
+        "ssSource",
+        "prvDiaForcedSources",
+        "prvDiaSources",
+        "diaObject",
+        "mpc_orbits",
+        "observation_reason",
+        "target_name",
+        "_hpx",
+    }
+
+
+@pytest.mark.asyncio
 async def test_cone_search(integration_client: httpx.AsyncClient):
     response = await integration_client.post(
         "/display/alerts/query",

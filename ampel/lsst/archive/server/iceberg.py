@@ -184,7 +184,7 @@ Column = Annotated[str, AfterValidator(is_valid_column)]
 
 class AlertQuery(BaseModel):
     include: list[Column] | None = None
-    exclude: tuple[Column] | None = None
+    exclude: list[Column] | None = None
     condition: str | None
     location: None | ConeConstraint | HEALpixConstraint = None
     time: None | TimeConstraint = None
@@ -255,9 +255,9 @@ class AlertQuery(BaseModel):
     def columns(self) -> Sequence[Expression]:
         if self.include is None:
             return [
-                StarExpression(exclude=self.exclude)
-                if self.exclude
+                StarExpression(exclude=tuple(self.exclude))
+                if self.exclude is not None
                 else StarExpression()
             ]
-        exclude_set = set(self.exclude or [])
+        exclude_set = set(self.exclude) if self.exclude else set()
         return [ColumnExpression(col) for col in self.include if col not in exclude_set]
