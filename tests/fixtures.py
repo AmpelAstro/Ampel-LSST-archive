@@ -1,5 +1,6 @@
 import os
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import duckdb
@@ -11,7 +12,11 @@ from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import HttpWaitStrategy, LogMessageWaitStrategy
 
 from ampel.lsst.archive.server.app import app
-from ampel.lsst.archive.server.iceberg import get_duckdb
+from ampel.lsst.archive.server.iceberg import (
+    get_cursor,
+    get_duckdb,
+    get_relation,
+)
 from ampel.lsst.archive.server.settings import settings
 
 
@@ -162,3 +167,9 @@ def integration_client(_mock_iceberg):
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://testserver"
     )
+
+
+@pytest.fixture
+def alert_relation(_mock_iceberg):
+    with contextmanager(get_cursor)(get_duckdb()) as cursor:
+        yield get_relation(cursor)
