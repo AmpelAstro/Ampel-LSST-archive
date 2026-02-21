@@ -98,7 +98,9 @@ class AstropyTime(BaseModel):
 
     @model_validator(mode="before")
     def parse_astropy_time(cls, data: Any) -> Any:
-        if isinstance(data, str | float | int):
+        if isinstance(data, float | int):
+            return {"val": data, "format": "jd"}
+        if isinstance(data, str):
             return {"val": data}
         return data
 
