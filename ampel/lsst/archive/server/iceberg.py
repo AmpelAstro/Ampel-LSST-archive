@@ -33,7 +33,14 @@ log = getLogger(__name__)
 
 @cache
 def get_duckdb() -> DuckDBPyConnection:
-    conn = connect(config={"allow_unsigned_extensions": "true"})
+    conn = connect(
+        config={
+            "allow_unsigned_extensions": "true",
+            "enable_curl_server_cert_verification": "false"
+            if settings.s3_insecure
+            else "true",
+        }
+    )
     for ext in "httpfs", "avro", "iceberg":
         conn.load_extension(ext)
     conn.execute(f"""
