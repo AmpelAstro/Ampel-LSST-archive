@@ -236,7 +236,7 @@ async def list_nights(
 ):
     return flatten(
         alerts.aggregate(
-            [  # type: ignore[arg-type]
+            [
                 SQLExpression("diaSource.visit // 100000 as night").alias("night"),
                 SQLExpression("count(*) as alerts"),
                 SQLExpression("count(distinct diaSource.visit) as visits"),

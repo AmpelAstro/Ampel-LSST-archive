@@ -34,7 +34,8 @@ dependencies = [
     "hishel (>=1.1.9,<2.0.0)",
     "httpx (>=0.28.1,<0.29.0)",
     "prometheus-fastapi-instrumentator (>=7.1.0,<8.0.0)",
-    "duckdb (>=1.4.4,<2.0.0)",
+    # exactly same version as in duckdb-iceberg submodule
+    "duckdb (==1.5.0.dev293)",
     "orjson (>=3.11.7,<4.0.0)"
 ]
 

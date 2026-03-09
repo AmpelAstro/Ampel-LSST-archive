@@ -85,7 +85,15 @@ def _alert_table(catalog, warehouse_dir: Path):
         p.mkdir()  # "On some systems, mode is ignored"
         p.chmod(0o777)
 
-    cursor = duckdb.connect()
+    cursor = duckdb.connect(config={"allow_unsigned_extensions": "true"})
+    for ext in "httpfs", "avro":
+        cursor.install_extension(ext)
+        cursor.load_extension(ext)
+    cursor.install_extension(
+        "iceberg",
+        repository_url="https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw",
+    )
+    cursor.load_extension("iceberg")
     cursor.execute(f"""
         ATTACH 'warehouse' AS iceberg_catalog(
             TYPE iceberg, AUTHORIZATION_TYPE none,

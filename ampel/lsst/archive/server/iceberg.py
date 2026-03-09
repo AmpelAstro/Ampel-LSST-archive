@@ -33,8 +33,8 @@ log = getLogger(__name__)
 
 @cache
 def get_duckdb() -> DuckDBPyConnection:
-    conn = connect()
-    for ext in "httpfs", "iceberg":
+    conn = connect(config={"allow_unsigned_extensions": "true"})
+    for ext in "httpfs", "avro", "iceberg":
         conn.load_extension(ext)
     conn.execute(f"""
         CREATE OR REPLACE SECRET secret (
