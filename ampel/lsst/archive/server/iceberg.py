@@ -51,7 +51,7 @@ def get_duckdb() -> DuckDBPyConnection:
             ENDPOINT '{settings.s3_endpoint}',
             URL_STYLE 'path'
         );
-        ATTACH 'warehouse' AS iceberg_catalog(
+        ATTACH 'warehouse' AS iceberg(
             TYPE iceberg, AUTHORIZATION_TYPE none,
             ENDPOINT '{settings.catalog_endpoint_url}'
         );
@@ -96,7 +96,7 @@ def get_cursor(
     connection: Annotated[DuckDBPyConnection, Depends(get_duckdb)],
 ) -> Generator[DuckDBPyConnection, None, None]:
     cursor = connection.cursor()
-    cursor.execute("use iceberg_catalog.lsst;")
+    cursor.execute("use iceberg.lsst;")
     with maybe_profile(cursor) as profiled_cursor:
         yield profiled_cursor
 
@@ -150,7 +150,7 @@ def get_relation(
     cursor: Connection,
     snapshot_id: Annotated[int | datetime | None, Depends(get_snapshot_id)] = None,
 ) -> DuckDBPyRelation:
-    sql = "from iceberg_catalog.lsst.alerts"
+    sql = "from iceberg.lsst.alerts"
     if isinstance(snapshot_id, int):
         sql += f" at (version => {snapshot_id})"
     elif isinstance(snapshot_id, datetime):

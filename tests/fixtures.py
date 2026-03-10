@@ -95,17 +95,17 @@ def _alert_table(catalog, warehouse_dir: Path):
     )
     cursor.load_extension("iceberg")
     cursor.execute(f"""
-        ATTACH 'warehouse' AS iceberg_catalog(
+        ATTACH 'warehouse' AS iceberg(
             TYPE iceberg, AUTHORIZATION_TYPE none,
             ENDPOINT '{catalog}'
         );
     """)
-    cursor.execute("create schema iceberg_catalog.lsst;")
-    cursor.execute("use iceberg_catalog.lsst;")
+    cursor.execute("create schema iceberg.lsst;")
+    cursor.execute("use iceberg.lsst;")
 
     cursor.execute(
         """
-        create table iceberg_catalog.lsst.alerts
+        create table iceberg.lsst.alerts
         as (
             select * from read_parquet('tests/test-data/diaObject.313853499427782700.parquet') limit 10
         );
@@ -115,7 +115,7 @@ def _alert_table(catalog, warehouse_dir: Path):
     # create a second snapshot
     cursor.execute(
         """
-        insert into iceberg_catalog.lsst.alerts (
+        insert into iceberg.lsst.alerts (
             select * from read_parquet('tests/test-data/diaObject.313853499427782700.parquet') offset 10
         );
         """
