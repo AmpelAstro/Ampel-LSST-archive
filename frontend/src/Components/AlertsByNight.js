@@ -139,9 +139,7 @@ const AlertsByNight = () => {
               "diaObject.nDiaSources",
               "diaSource.snr",
             ],
-            condition: `diaSource.visit >= ${idState}00000 and diaSource.visit < ${
-              parseInt(idState) + 1
-            }00000`,
+            condition: `diaSource.visit >= ${idState}00000 and diaSource.visit <= ${idState}99999`,
           },
           { transformResponse: [(data) => JSONParse(data)] }
         );
