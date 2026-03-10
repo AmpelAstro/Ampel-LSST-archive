@@ -79,7 +79,10 @@ def get_cursor(
                 for k, v in profile.items()
                 if k
                 in {
+                    "query_name",
                     "total_bytes_read",
+                    "result_set_size",
+                    "rows_returned",
                     "latency",
                     "cpu_time",
                     "system_peak_buffer_memory",
