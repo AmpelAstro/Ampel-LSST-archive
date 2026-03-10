@@ -36,7 +36,8 @@ dependencies = [
     "prometheus-fastapi-instrumentator (>=7.1.0,<8.0.0)",
     # exactly same version as in duckdb-iceberg submodule
     "duckdb (==1.5.0.dev293)",
-    "orjson (>=3.11.7,<4.0.0)"
+    "orjson (>=3.11.7,<4.0.0)",
+    "pandas (>=3.0.1,<4.0.0)"
 ]
 
 [project.optional-dependencies]
