@@ -2,12 +2,12 @@ import functools
 import json
 import operator
 from collections.abc import Generator, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import datetime
 from functools import cache
 from logging import getLogger
 from pathlib import Path
-from tempfile import mktemp
+from tempfile import NamedTemporaryFile
 from typing import Annotated
 from urllib.parse import urljoin
 
@@ -59,37 +59,46 @@ def get_duckdb() -> DuckDBPyConnection:
     return conn
 
 
+@contextmanager
+def maybe_profile(
+    cursor: DuckDBPyConnection,
+) -> Generator[DuckDBPyConnection, None, None]:
+    if settings.enable_profiling:
+        with NamedTemporaryFile(suffix=".json") as f:
+            profile_file = Path(f.name)
+            cursor.execute("set enable_profiling='json';")
+            cursor.execute(f"set profile_output='{profile_file}';")
+            try:
+                yield cursor
+            finally:
+                with suppress(json.JSONDecodeError):
+                    profile = json.load(f)
+                    stripped = {
+                        k: v
+                        for k, v in profile.items()
+                        if k
+                        in {
+                            "query_name",
+                            "total_bytes_read",
+                            "result_set_size",
+                            "rows_returned",
+                            "latency",
+                            "cpu_time",
+                            "system_peak_buffer_memory",
+                        }
+                    }
+                    log.warning(json.dumps(stripped, indent=2))
+    else:
+        yield cursor
+
+
 def get_cursor(
     connection: Annotated[DuckDBPyConnection, Depends(get_duckdb)],
 ) -> Generator[DuckDBPyConnection, None, None]:
     cursor = connection.cursor()
     cursor.execute("use iceberg_catalog.lsst;")
-    if settings.enable_profiling:
-        profile_file = Path(mktemp(suffix=".json"))
-        cursor.execute("set enable_profiling='json';")
-        cursor.execute(f"set profile_output='{profile_file}';")
-    try:
-        yield cursor
-    finally:
-        if settings.enable_profiling and profile_file.exists():
-            with profile_file.open() as f:
-                profile = json.load(f)
-            stripped = {
-                k: v
-                for k, v in profile.items()
-                if k
-                in {
-                    "query_name",
-                    "total_bytes_read",
-                    "result_set_size",
-                    "rows_returned",
-                    "latency",
-                    "cpu_time",
-                    "system_peak_buffer_memory",
-                }
-            }
-            log.warn(json.dumps(stripped, indent=2))
-            profile_file.unlink()
+    with maybe_profile(cursor) as profiled_cursor:
+        yield profiled_cursor
 
 
 Connection = Annotated[DuckDBPyConnection, Depends(get_cursor)]
