@@ -26,7 +26,7 @@ RUN VIRTUAL_ENV=/venv poetry install --no-root --no-directory --all-extras --wit
 ARG DUCKDB_EXTENSION_REPO=https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw
 
 # pre-install duckdb extensions
-RUN echo "import duckdb\nfor ext in ['httpfs', 'avro']: duckdb.install_extension(ext); duckdb.load_extension(ext)" | /venv/bin/python
+RUN echo "import duckdb\nfor ext in ['httpfs', 'avro', 'spatial']: duckdb.install_extension(ext); duckdb.load_extension(ext)" | /venv/bin/python
 RUN echo "import duckdb; duckdb.connect(config={'allow_unsigned_extensions': 'true'}).install_extension('iceberg', repository_url='$DUCKDB_EXTENSION_REPO');" | /venv/bin/python
 
 COPY ampel ampel

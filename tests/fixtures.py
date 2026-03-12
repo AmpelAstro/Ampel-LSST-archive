@@ -86,7 +86,7 @@ def _alert_table(catalog, warehouse_dir: Path):
         p.chmod(0o777)
 
     cursor = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-    for ext in "httpfs", "avro":
+    for ext in "httpfs", "avro", "spatial":
         cursor.install_extension(ext)
         cursor.load_extension(ext)
     cursor.install_extension(

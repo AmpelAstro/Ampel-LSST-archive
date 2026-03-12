@@ -9,7 +9,7 @@ def ranges_for_cone(
     ra: float, dec: float, radius: float, max_nside: int = 64, order: str = "nested"
 ) -> tuple[int, multirange[int]]:
     """
-    Get healpix pixels that lie within the given circle
+    Get healpix pixels that overlap with the given circle
 
     :returns: half-open intervals at the given nside
     """
