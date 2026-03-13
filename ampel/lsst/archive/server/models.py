@@ -47,8 +47,8 @@ class StreamRecord(BaseModel):
 
 class StreamDescription(StreamRecord):
     post: str = Field(description="URL to post to in order to get the next chunk")
-    remaining: ChunkCount = Field(description="Unconsumed items")
-    pending: ChunkCount = Field(description="Items reserved but not yet consumed")
+    remaining: int = Field(description="Unconsumed items")
+    pending: int = Field(description="Items reserved but not yet consumed")
 
 
 class PlotlyFigure(BaseModel):

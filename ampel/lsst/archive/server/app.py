@@ -21,6 +21,7 @@ from .iceberg import (
 )
 from .models import AlertCutouts, StreamRecord
 from .settings import settings
+from .streams import router as stream_router
 from .valkey import STREAM_TTL, Valkey
 
 # from .tokens import (
@@ -85,6 +86,7 @@ if settings.allowed_origins:
     )
 
 app.include_router(display_router, prefix="/display")
+app.include_router(stream_router, prefix="/stream")
 
 
 @app.get(
