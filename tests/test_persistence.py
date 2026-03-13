@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import pytest_asyncio
 from fastapi import status
@@ -56,6 +58,25 @@ async def test_create_stream(integration_client, stream_token):
     assert desc.items == 1
     assert desc.remaining == 1
     assert desc.pending == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_stream(integration_client, stream_token, cursor, warehouse_dir):
+    entry = (f"stream_{stream_token}",)
+
+    assert entry in cursor.sql("show tables").fetchall()
+
+    response = await integration_client.delete(f"/stream/{stream_token}")
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    response = await integration_client.get(f"/stream/{stream_token}")
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    assert entry not in cursor.sql("show tables").fetchall()
+
+    table_dir = warehouse_dir / "lsst" / entry[0]
+    assert not os.listdir(table_dir / "data")
+    assert not os.listdir(table_dir / "metadata")
 
 
 @pytest.mark.asyncio
