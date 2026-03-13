@@ -1,6 +1,8 @@
+import base64
 import functools
 import json
 import operator
+import secrets
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager, suppress
 from datetime import datetime
@@ -23,7 +25,7 @@ from duckdb import (
 )
 from duckdb.sqltypes import DuckDBPyType
 from fastapi import Depends, HTTPException, Query, status
-from pydantic import AfterValidator
+from pydantic import AfterValidator, Field
 
 from .models import ConeConstraint, HEALpixConstraint, StrictModel, TimeConstraint
 from .settings import settings
@@ -297,3 +299,17 @@ class AlertQuery(StrictModel):
             ]
         exclude_set = set(self.exclude) if self.exclude else set()
         return [ColumnExpression(col) for col in self.include if col not in exclude_set]
+
+
+class StreamQuery(AlertQuery):
+    chunk_size: Annotated[int, Field(..., ge=1, le=10000)] = 1000
+
+
+def table_name_token() -> str:
+    return (
+        base64.b64encode(secrets.token_bytes(32))
+        .replace(b"+", b"")
+        .replace(b"/", b"")
+        .rstrip(b"=")
+        .decode("ascii")
+    )

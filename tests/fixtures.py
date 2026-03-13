@@ -10,6 +10,7 @@ from fastapi import status
 from pyiceberg.catalog import load_catalog
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import HttpWaitStrategy, LogMessageWaitStrategy
+from testcontainers.redis import RedisContainer
 
 from ampel.lsst.archive.server.app import app
 from ampel.lsst.archive.server.iceberg import (
@@ -18,6 +19,7 @@ from ampel.lsst.archive.server.iceberg import (
     get_relation,
 )
 from ampel.lsst.archive.server.settings import settings
+from ampel.lsst.archive.server.valkey import get_valkey_client
 
 
 @pytest.fixture(scope="session")
@@ -71,11 +73,32 @@ def catalog(_docker, warehouse_dir: Path):
 
         yield url
 
-        out, err = container.get_logs()
-        sys.stdout.buffer.write(out)
-        sys.stdout.flush()
-        sys.stderr.buffer.write(err)
-        sys.stderr.flush()
+        # out, err = container.get_logs()
+        # sys.stdout.buffer.write(out)
+        # sys.stdout.flush()
+        # sys.stderr.buffer.write(err)
+        # sys.stderr.flush()
+
+
+@pytest.fixture(scope="session")
+def valkey(_docker):
+    with RedisContainer(image="valkey/valkey:7.2.12-alpine3.23") as container:
+        yield f"redis://{container.get_container_host_ip()}:{container.get_exposed_port(container.port)}"
+
+
+@pytest.fixture
+def _mock_valkey(valkey, monkeypatch):
+    monkeypatch.setattr(
+        settings,
+        "valkey_url",
+        valkey,
+        # pydantic.TypeAdapter(type(settings).model_fields["valkey_url"].annotation).validate_python(
+        #     valkey
+        # ),
+    )
+    get_valkey_client.cache_clear()
+    yield
+    get_valkey_client.cache_clear()
 
 
 @pytest.fixture(scope="session")
@@ -171,7 +194,7 @@ def _mock_iceberg(catalog, _alert_table, monkeypatch):
 
 
 @pytest.fixture
-def integration_client(_mock_iceberg):
+def integration_client(_mock_iceberg, _mock_valkey):
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://testserver"
     )

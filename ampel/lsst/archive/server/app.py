@@ -1,17 +1,27 @@
-from fastapi import (
-    FastAPI,
-)
+import datetime
+from typing import Annotated
+
+from fastapi import BackgroundTasks, Body, FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
+from starlette.concurrency import run_in_threadpool
 from zstd_asgi import ZstdMiddleware
 
 from .alert import CutoutsFromId
 from .display import router as display_router
-from .iceberg import AlertQuery, AlertRelation, get_refs
-from .models import AlertCutouts
+from .iceberg import (
+    AlertQuery,
+    AlertRelation,
+    Connection,
+    StreamQuery,
+    get_refs,
+    table_name_token,
+)
+from .models import AlertCutouts, StreamRecord
 from .settings import settings
+from .valkey import STREAM_TTL, Valkey
 
 # from .tokens import (
 #     AuthToken,
@@ -493,136 +503,54 @@ def create_stream_from_topic(
         raise HTTPException(status_code=404, detail="Topic not found") from None
     stream_info = get_stream_info(resume_token, archive)
     return {"resume_token": resume_token, **stream_info}
+'''
 
 
 @app.post(
     "/streams/from_query",
     tags=["search", "stream"],
-    response_model=Stream,
+    # response_model=StreamDescription,
     status_code=status.HTTP_202_ACCEPTED,
 )
-def create_stream_from_query(
+async def create_stream_from_query(
+    query: Annotated[StreamQuery, Body()],
+    alert_relation: AlertRelation,
+    cursor: Connection,
     tasks: BackgroundTasks,
-    query: Union[AlertQuery, ObjectQuery, HEALpixRegionQuery] = Body(
-        ...,
-        examples={  # type: ignore[arg-type]
-            "cone": {
-                "summary": "Cone search",
-                "value": {
-                    "cone": {"ra": 158.068431, "dec": 47.0497302, "radius": 3.5},
-                },
-            },
-            "object": {
-                "summary": "LSST-ID search",
-                "description": "Retrieve alerts for all ObjectIds provided",
-                "value": {
-                    "objectId": ["ZTF19aapreis", "ZTF19aatubsj"],
-                    "jd": {"$gt": 2458550.5, "$lt": 2459550.5},
-                },
-            },
-            "healpix": {
-                "summary": "HEALpix search",
-                "description": "search regions of a HEALpix map (in narrow time range)",
-                "value": {
-                    "regions": [{"nside": 64, "pixels": [5924, 5925, 5926, 5927]}],
-                    "jd": {"$gt": 2459308.72, "$lt": 2459308.73},
-                },
-            },
-            "filtered": {
-                "summary": "Epoch search",
-                "description": "Search for all candidates in an epoch range that fulfill criteria",
-                "value": {
-                    "jd": {"$gt": 2459550.5, "$lt": 2459551.5},
-                    "candidate": {
-                        "drb": {"$gt": 0.999},
-                        "magpsf": {"$lt": 15},
-                        "ndethist": {"$gt": 0, "$lte": 10},
-                        "fid": 1,
-                    },
-                },
-            },
-        },
-    ),
-    archive: ArchiveDB = Depends(get_archive),
-    auth: bool = Depends(verify_access_token),
-    programid: Optional[int] = Depends(verify_authorized_programid),
+    valkey: Valkey,
 ):
     """
     Create a stream of alerts from the given query. The resulting resume_token
     can be used to read the stream concurrently from multiple clients.
     """
-    try:
-        if isinstance(query, AlertQuery):
-            if query.cone:
-                condition, order = archive._cone_search_condition(  # noqa: SLF001
-                    ra=query.cone.ra,
-                    dec=query.cone.dec,
-                    radius=query.cone.radius,
-                    programid=programid,
-                    jd_min=query.jd.gt,
-                    jd_max=query.jd.lt,
-                    candidate_filter=query.candidate,
-                )
-            else:
-                condition, order = archive._time_range_condition(  # noqa: SLF001
-                    programid=programid,
-                    jd_start=query.jd.gt,
-                    jd_end=query.jd.lt,
-                    candidate_filter=query.candidate,
-                )
-        elif isinstance(query, ObjectQuery):
-            condition, order = archive._object_search_condition(  # noqa: SLF001
-                objectId=query.objectId,
-                programid=programid,
-                jd_start=query.jd.gt,
-                jd_end=query.jd.lt,
-                candidate_filter=query.candidate,
-            )
-        else:
-            pixels: dict[int, list[int]] = {}
-            for region in query.regions:
-                pixels[region.nside] = pixels.get(region.nside, []) + region.pixels
-            condition, order = archive._healpix_search_condition(  # noqa: SLF001
-                pixels=pixels,
-                jd_min=query.jd.gt,
-                jd_max=query.jd.lt,
-                latest=query.latest,
-                programid=programid,
-                candidate_filter=query.candidate,
-            )
-    except NoSuchColumnError as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"msg": f"unknown candidate field {exc.args[0]}"},
-        ) from None
+    token = table_name_token()
+    key = f"stream:{token}"
+    table = f"stream_{token}"
 
-    name = secrets.token_urlsafe(32)
-    try:
-        conn = archive._engine.connect()  # noqa: SLF001
-    except sqlalchemy.exc.TimeoutError as exc:
-        conn.close()
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"msg": str(exc)}
-        ) from None
-
-    conn.execute(
-        sqlalchemy.text(f"set statement_timeout={settings.stream_query_timeout*1000};")
-    )
-    group_id = archive._create_read_queue(conn, name, query.chunk_size)  # noqa: SLF001
-    conn.commit()
+    def get_num_rows() -> int:
+        return cursor.sql(f"select count(*) from {table};").fetchone()[0]
 
     # create stream in the background
-    def create_stream() -> None:
-        try:
-            archive._fill_read_queue(conn, condition, order, group_id, query.chunk_size)  # noqa: SLF001
-            conn.commit()
-        finally:
-            conn.close()
+    async def create_stream() -> None:
+        t0 = datetime.datetime.now(tz=datetime.UTC)
+        await valkey.set(key, "pending", expiry=STREAM_TTL)
+        await run_in_threadpool(query.persist_to, alert_relation, table)
+        t1 = datetime.datetime.now(tz=datetime.UTC)
+        record = StreamRecord(
+            chunk_size=query.chunk_size,
+            started_at=t0,
+            finished_at=t1,
+            items=await run_in_threadpool(get_num_rows),
+        )
+        nchunks = (record.items + query.chunk_size - 1) // query.chunk_size
+        await valkey.set(key, record.model_dump_json(), expiry=STREAM_TTL)
+        await valkey.lpush(f"{key}:chunks", [str(i) for i in range(nchunks)])
+        await valkey.expire(f"{key}:chunks", STREAM_TTL.get_cmd_args()[1])
 
     tasks.add_task(create_stream)
 
-    return {"resume_token": name, "chunk_size": query.chunk_size}
-'''
+    return {"resume_token": token}
+
 
 # Collect metrics for all endpoints except /metrics
 instrumentator = Instrumentator(

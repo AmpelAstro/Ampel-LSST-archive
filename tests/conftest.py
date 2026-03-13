@@ -3,6 +3,7 @@ import os
 pytest_plugins = ["tests.fixtures"]
 
 os.environ["CATALOG_ENDPOINT_URL"] = "http://FIXME-CATALOG_ENDPOINT_URL-MUST-BE-SET"
+os.environ["VALKEY_URL"] = "redis://FIXME-VALKEY_URL-MUST-BE-SET"
 os.environ["S3_ENDPOINT"] = "http://FIXME-S3_ENDPOINT-MUST-BE-SET"
 
 

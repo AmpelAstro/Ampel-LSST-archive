@@ -28,7 +28,7 @@ class StrictModel(BaseModel):
 
 
 class Stream(BaseModel):
-    path: str
+    resume_token: str
     chunk_size: int
 
 
@@ -38,16 +38,17 @@ class ChunkCount(BaseModel):
     bytes: int
 
 
-class StreamDescription(BaseModel):
-    post: str = Field(description="URL to post to in order to get the next chunk")
+class StreamRecord(BaseModel):
     chunk_size: int
+    items: int
+    started_at: datetime
+    finished_at: datetime
+
+
+class StreamDescription(StreamRecord):
+    post: str = Field(description="URL to post to in order to get the next chunk")
     remaining: ChunkCount = Field(description="Unconsumed items")
     pending: ChunkCount = Field(description="Items reserved but not yet consumed")
-    started_at: datetime = Field(description="Timestamp when query was issued")
-    finished_at: datetime | None = Field(
-        default=None,
-        description="Timestamp when query finished (null if still running)",
-    )
 
 
 class PlotlyFigure(BaseModel):
