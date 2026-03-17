@@ -59,7 +59,9 @@ def get_duckdb() -> DuckDBPyConnection:
             URL_STYLE 'path'
         );
         ATTACH 'warehouse' AS iceberg(
-            TYPE iceberg, AUTHORIZATION_TYPE none,
+            TYPE iceberg,
+            AUTHORIZATION_TYPE none,
+            PURGE_REQUESTED true,
             ENDPOINT '{settings.catalog_endpoint_url}'
         );
     """)
