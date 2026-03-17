@@ -530,7 +530,7 @@ async def create_stream_from_query(
     table = f"stream_{token}"
 
     def get_num_rows() -> int:
-        return cursor.sql(f"select count(*) from {table};").fetchone()[0]
+        return cursor.sql(f"select count(*) from {table};").fetchone()[0]  # type: ignore[index]
 
     # create stream in the background
     async def create_stream() -> None:
