@@ -1,8 +1,7 @@
-import asyncio
 from datetime import timedelta
-from functools import cache
 from typing import Annotated
 
+from async_lru import alru_cache
 from fastapi import Depends
 from glide import (
     ExpirySet,
@@ -14,17 +13,10 @@ from glide import (
 
 from .settings import settings
 
-
-def async_cache(async_function):
-    @cache
-    def wrapper(*args, **kwargs):
-        coro = async_function(*args, **kwargs)
-        return asyncio.ensure_future(coro)
-
-    return wrapper
+cache = alru_cache(None)
 
 
-# @async_cache
+@cache
 async def get_valkey_client():
     addresses = [
         NodeAddress(
@@ -34,8 +26,6 @@ async def get_valkey_client():
     client_config = GlideClientConfiguration(addresses)
     return await GlideClient.create(client_config)
 
-
-get_valkey_client.cache_clear = lambda: None
 
 Valkey = Annotated[GlideClient, Depends(get_valkey_client)]
 

@@ -38,7 +38,8 @@ dependencies = [
     "duckdb (==1.5.0.dev293)",
     "orjson (>=3.11.7,<4.0.0)",
     "pandas (>=3.0.1,<4.0.0)",
-    "valkey-glide (>=2.2.7,<3.0.0)"
+    "valkey-glide (>=2.2.7,<3.0.0)",
+    "async-lru (>=2.2.0,<3.0.0)"
 ]
 
 [project.optional-dependencies]
