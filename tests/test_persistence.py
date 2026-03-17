@@ -29,7 +29,7 @@ def test_persistence(alert_relation, cursor, ensure_table_dirs):
     assert len(rows) == 1
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="module")
 async def stream_token(integration_client, mocker, ensure_table_dirs):
     name = table_name_token()
     mocker.patch("ampel.lsst.archive.server.app.table_name_token", return_value=name)
@@ -50,7 +50,7 @@ async def stream_token(integration_client, mocker, ensure_table_dirs):
     return response.json()["resume_token"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_create_stream(integration_client, stream_token):
     response = await integration_client.get(f"/stream/{stream_token}")
     assert response.status_code == status.HTTP_200_OK
@@ -60,7 +60,7 @@ async def test_create_stream(integration_client, stream_token):
     assert desc.pending == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_delete_stream(integration_client, stream_token, cursor, warehouse_dir):
     entry = (f"stream_{stream_token}",)
 
@@ -79,7 +79,7 @@ async def test_delete_stream(integration_client, stream_token, cursor, warehouse
     assert not os.listdir(table_dir / "metadata")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="module")
 async def test_get_chunk(integration_client, stream_token):
     async def description():
         response = await integration_client.get(f"/stream/{stream_token}")
