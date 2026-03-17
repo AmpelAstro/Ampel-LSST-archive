@@ -23,9 +23,9 @@ from duckdb import (
 )
 from duckdb.sqltypes import DuckDBPyType
 from fastapi import Depends, HTTPException, Query, status
-from pydantic import AfterValidator, BaseModel
+from pydantic import AfterValidator
 
-from .models import ConeConstraint, HEALpixConstraint, TimeConstraint
+from .models import ConeConstraint, HEALpixConstraint, StrictModel, TimeConstraint
 from .settings import settings
 
 log = getLogger(__name__)
@@ -41,9 +41,14 @@ def get_duckdb() -> DuckDBPyConnection:
             else "true",
         }
     )
-    for ext in "httpfs", "avro", "iceberg":
+    for ext in "httpfs", "avro", "iceberg", "spatial":
         conn.load_extension(ext)
     conn.execute(f"""
+        CREATE OR REPLACE MACRO angular_separation(lon1, lat1, lon2, lat2) AS
+            st_distance_sphere(
+                st_point(lat1, lon1),
+                st_point(lat2, lon2)
+            )/6370986*180/pi();
         CREATE OR REPLACE SECRET secret (
             TYPE s3,
             PROVIDER config,
@@ -201,7 +206,7 @@ def is_valid_column(name: str) -> str:
 Column = Annotated[str, AfterValidator(is_valid_column)]
 
 
-class AlertQuery(BaseModel):
+class AlertQuery(StrictModel):
     include: list[Column] | None = None
     exclude: list[Column] | None = None
     condition: str | None
@@ -219,7 +224,7 @@ class AlertQuery(BaseModel):
         # demand that the pixel is in one of the desired ranges, and add a
         # nominally redundant condition to help the query planner exclude
         # column groups that can't possibly contain any matching rows
-        return (
+        condition = (
             functools.reduce(
                 operator.or_,
                 ((pix > span[0]) & (pix < span[1]) for span in ranges),  # type: ignore[operator]
@@ -227,6 +232,15 @@ class AlertQuery(BaseModel):
             & (pix > ranges.lefts[0])  # type: ignore[operator]
             & (pix < ranges.rights[-1])  # type: ignore[operator]
         )
+        if isinstance(self.location, ConeConstraint):
+            return condition & (
+                # NB: should use FunctionExpression here, but it can't parse the namespaced function name
+                SQLExpression(
+                    f"memory.angular_separation(diaSource.ra, diaSource.dec, {self.location.ra}, {self.location.dec})"
+                )
+                <= self.location.radius  # type: ignore[operator]
+            )
+        return condition
 
     def time_constraint(self) -> Expression | None:
         if self.time is None:
