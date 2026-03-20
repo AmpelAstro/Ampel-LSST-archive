@@ -122,14 +122,21 @@ def _alert_table(catalog, ensure_table_dirs):
     ensure_table_dirs("lsst", "alerts")
 
     cursor = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-    for ext in "httpfs", "avro", "spatial":
+    for ext in (
+        "httpfs",
+        "spatial",
+    ):
         cursor.install_extension(ext)
         cursor.load_extension(ext)
-    cursor.install_extension(
+    for ext in (
+        "avro",
         "iceberg",
-        repository_url="https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw",
-    )
-    cursor.load_extension("iceberg")
+    ):
+        cursor.install_extension(
+            ext,
+            repository_url="https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw",
+        )
+        cursor.load_extension(ext)
     cursor.execute(f"""
         ATTACH 'warehouse' AS iceberg(
             TYPE iceberg, AUTHORIZATION_TYPE none,
