@@ -142,7 +142,7 @@ async def stream_get(
     remaining_chunks = (await valkey.llen(f"stream:{resume_token}:chunks")) or 0
     pending_chunks = (await valkey.llen(f"stream:{resume_token}:chunks:pending")) or 0
     return StreamDescription(
-        post=f"{settings.root_path}/stream/{resume_token}/chunk",
+        post=f"{settings.root_path}/stream/{resume_token}/fetch",
         chunk_size=stream.chunk_size,
         items=stream.items,
         remaining=remaining_chunks,
