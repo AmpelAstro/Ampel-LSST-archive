@@ -1,12 +1,8 @@
-import datetime
-from typing import Annotated
-
-from fastapi import BackgroundTasks, Body, FastAPI, status
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import ORJSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
-from starlette.concurrency import run_in_threadpool
 from zstd_asgi import ZstdMiddleware
 
 from .alert import CutoutsFromId
@@ -14,15 +10,12 @@ from .display import router as display_router
 from .iceberg import (
     AlertQuery,
     AlertRelation,
-    Connection,
-    StreamQuery,
     get_refs,
-    table_name_token,
 )
-from .models import AlertCutouts, StreamRecord
+from .models import AlertCutouts
 from .settings import settings
+from .streams import create_stream_from_query, purge_expired_streams
 from .streams import router as stream_router
-from .valkey import STREAM_TTL, Valkey
 
 # from .tokens import (
 #     AuthToken,
@@ -508,50 +501,18 @@ def create_stream_from_topic(
 '''
 
 
-@app.post(
+app.post(
     "/streams/from_query",
     tags=["search", "stream"],
     # response_model=StreamDescription,
     status_code=status.HTTP_202_ACCEPTED,
-)
-async def create_stream_from_query(
-    query: Annotated[StreamQuery, Body()],
-    alert_relation: AlertRelation,
-    cursor: Connection,
-    tasks: BackgroundTasks,
-    valkey: Valkey,
-):
-    """
-    Create a stream of alerts from the given query. The resulting resume_token
-    can be used to read the stream concurrently from multiple clients.
-    """
-    token = table_name_token()
-    key = f"stream:{token}"
-    table = f"stream_{token}"
+)(create_stream_from_query)
 
-    def get_num_rows() -> int:
-        return cursor.sql(f"select count(*) from {table};").fetchone()[0]  # type: ignore[index]
-
-    # create stream in the background
-    async def create_stream() -> None:
-        t0 = datetime.datetime.now(tz=datetime.UTC)
-        await valkey.set(key, "pending", expiry=STREAM_TTL)
-        await run_in_threadpool(query.persist_to, alert_relation, table)
-        t1 = datetime.datetime.now(tz=datetime.UTC)
-        record = StreamRecord(
-            chunk_size=query.chunk_size,
-            started_at=t0,
-            finished_at=t1,
-            items=await run_in_threadpool(get_num_rows),
-        )
-        nchunks = (record.items + query.chunk_size - 1) // query.chunk_size
-        await valkey.set(key, record.model_dump_json())
-        await valkey.lpush(f"{key}:chunks", [str(i) for i in range(nchunks)])
-
-    tasks.add_task(create_stream)
-
-    return {"resume_token": token}
-
+app.post(
+    "/streams/purge",
+    tags=["stream"],
+    status_code=status.HTTP_204_NO_CONTENT,
+)(purge_expired_streams)
 
 # Collect metrics for all endpoints except /metrics
 instrumentator = Instrumentator(

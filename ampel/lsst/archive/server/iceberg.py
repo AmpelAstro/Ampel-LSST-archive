@@ -5,7 +5,7 @@ import operator
 import secrets
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager, suppress
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache
 from logging import getLogger
 from pathlib import Path
@@ -305,6 +305,9 @@ class AlertQuery(StrictModel):
 
 class StreamQuery(AlertQuery):
     chunk_size: Annotated[int, Field(..., ge=1, le=10000)] = 1000
+    ttl: Annotated[
+        timedelta, Field(..., gt=timedelta(seconds=1), lt=timedelta(days=7))
+    ] = timedelta(days=1)
 
 
 def table_name_token() -> str:

@@ -1,3 +1,4 @@
+import datetime
 import os
 
 import pytest
@@ -5,7 +6,8 @@ import pytest_asyncio
 from fastapi import status
 
 from ampel.lsst.archive.server.iceberg import AlertQuery, StreamQuery, table_name_token
-from ampel.lsst.archive.server.models import StreamDescription
+from ampel.lsst.archive.server.models import StreamDescription, StreamRecord
+from ampel.lsst.archive.server.valkey import get_valkey_client
 
 
 def test_persistence(alert_relation, cursor, ensure_table_dirs):
@@ -32,7 +34,9 @@ def test_persistence(alert_relation, cursor, ensure_table_dirs):
 @pytest_asyncio.fixture(loop_scope="module")
 async def stream_token(integration_client, mocker, ensure_table_dirs):
     name = table_name_token()
-    mocker.patch("ampel.lsst.archive.server.app.table_name_token", return_value=name)
+    mocker.patch(
+        "ampel.lsst.archive.server.streams.table_name_token", return_value=name
+    )
 
     query = StreamQuery(
         include=["diaSourceId"],
@@ -43,7 +47,7 @@ async def stream_token(integration_client, mocker, ensure_table_dirs):
 
     response = await integration_client.post(
         "/streams/from_query",
-        json=query.model_dump(),
+        json=query.model_dump(mode="json"),
     )
     assert response.status_code == status.HTTP_202_ACCEPTED
     assert response.json().keys() == {"resume_token"}
@@ -71,6 +75,39 @@ async def test_delete_stream(integration_client, stream_token, cursor, warehouse
 
     response = await integration_client.get(f"/stream/{stream_token}")
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    assert entry not in cursor.sql("show tables").fetchall()
+
+    table_dir = warehouse_dir / "lsst" / entry[0]
+    assert not os.listdir(table_dir / "data")
+    assert not os.listdir(table_dir / "metadata")
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_purge_streams(integration_client, stream_token, cursor, warehouse_dir):
+    entry = (f"stream_{stream_token}",)
+
+    assert entry in cursor.sql("show tables").fetchall()
+
+    response = await integration_client.post("/streams/purge", follow_redirects=False)
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    response = await integration_client.get(f"/stream/{stream_token}")
+    assert response.status_code == status.HTTP_200_OK, "stream was not yet expired"
+
+    key = f"stream:{stream_token}"
+    valkey = await get_valkey_client()
+    model = StreamRecord.model_validate_json(await valkey.get(key))
+    model.expires_at = model.started_at - datetime.timedelta(
+        days=1
+    )  # expire the stream
+    await valkey.set(key, model.model_dump_json())
+
+    response = await integration_client.post("/streams/purge", follow_redirects=False)
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    response = await integration_client.get(f"/stream/{stream_token}")
+    assert response.status_code == status.HTTP_404_NOT_FOUND, "stream was purged"
 
     assert entry not in cursor.sql("show tables").fetchall()
 
