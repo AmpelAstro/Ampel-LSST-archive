@@ -545,9 +545,8 @@ async def create_stream_from_query(
             items=await run_in_threadpool(get_num_rows),
         )
         nchunks = (record.items + query.chunk_size - 1) // query.chunk_size
-        await valkey.set(key, record.model_dump_json(), expiry=STREAM_TTL)
+        await valkey.set(key, record.model_dump_json())
         await valkey.lpush(f"{key}:chunks", [str(i) for i in range(nchunks)])
-        await valkey.expire(f"{key}:chunks", STREAM_TTL.get_cmd_args()[1])
 
     tasks.add_task(create_stream)
 
