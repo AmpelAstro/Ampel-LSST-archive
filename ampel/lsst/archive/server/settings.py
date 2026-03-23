@@ -1,6 +1,6 @@
 import secrets
 
-from pydantic import Field, HttpUrl, PostgresDsn
+from pydantic import AnyUrl, Field, HttpUrl, PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +25,7 @@ class Settings(BaseSettings):
         validation_alias="STREAM_CHUNK_BYTES",
         description="Size of alert chunks when streaming from S3",
     )
+    valkey_url: AnyUrl = Field(..., validation_alias="VALKEY_URL")
     catalog_endpoint_url: HttpUrl = Field(..., validation_alias="CATALOG_ENDPOINT_URL")
     s3_endpoint: str | None = Field(None, validation_alias="S3_ENDPOINT")
     s3_bucket: str = Field("ampel-lsst-cutout-archive", validation_alias="S3_BUCKET")
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
         validation_alias="ENABLE_PROFILING",
         description="Enable query profiling",
     )
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", validate_assignment=True)
 
 
 settings = Settings()

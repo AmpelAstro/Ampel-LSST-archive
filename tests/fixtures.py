@@ -1,5 +1,6 @@
 import os
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import duckdb
@@ -9,10 +10,16 @@ from fastapi import status
 from pyiceberg.catalog import load_catalog
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import HttpWaitStrategy, LogMessageWaitStrategy
+from testcontainers.redis import RedisContainer
 
 from ampel.lsst.archive.server.app import app
-from ampel.lsst.archive.server.iceberg import get_duckdb
+from ampel.lsst.archive.server.iceberg import (
+    get_cursor,
+    get_duckdb,
+    get_relation,
+)
 from ampel.lsst.archive.server.settings import settings
+from ampel.lsst.archive.server.valkey import get_valkey_client
 
 
 @pytest.fixture(scope="session")
@@ -66,34 +73,70 @@ def catalog(_docker, warehouse_dir: Path):
 
         yield url
 
-        out, err = container.get_logs()
-        sys.stdout.buffer.write(out)
-        sys.stdout.flush()
-        sys.stderr.buffer.write(err)
-        sys.stderr.flush()
+        # out, err = container.get_logs()
+        # sys.stdout.buffer.write(out)
+        # sys.stdout.flush()
+        # sys.stderr.buffer.write(err)
+        # sys.stderr.flush()
 
 
 @pytest.fixture(scope="session")
-def _alert_table(catalog, warehouse_dir: Path):
+def valkey(_docker):
+    with RedisContainer(image="valkey/valkey:7.2.12-alpine3.23") as container:
+        yield f"redis://{container.get_container_host_ip()}:{container.get_exposed_port(container.port)}"
+
+
+@pytest.fixture
+def _mock_valkey(valkey, monkeypatch):
+    monkeypatch.setattr(
+        settings,
+        "valkey_url",
+        valkey,
+        # pydantic.TypeAdapter(type(settings).model_fields["valkey_url"].annotation).validate_python(
+        #     valkey
+        # ),
+    )
+    get_valkey_client.cache_clear()
+    yield
+    get_valkey_client.cache_clear()
+
+
+@pytest.fixture(scope="session")
+def ensure_table_dirs(warehouse_dir: Path):
+    def ensure_table_dirs(namespace: str, table: str):
+        # duckdb fileio expects directory structure to exist when creating tables
+        table_dir = warehouse_dir / namespace / table
+        table_dir.mkdir(parents=True)
+        for subdir in ["data", "metadata"]:
+            p = table_dir / subdir
+            p.mkdir()  # "On some systems, mode is ignored"
+            p.chmod(0o777)
+
+    return ensure_table_dirs
+
+
+@pytest.fixture(scope="session")
+def _alert_table(catalog, ensure_table_dirs):
     """Fixture to create a DuckDB connection to the Iceberg catalog."""
 
-    # duckdb fileio expects directory structure to exist when creating tables
-    table_dir = warehouse_dir / "lsst" / "alerts"
-    table_dir.mkdir(parents=True)
-    for subdir in ["data", "metadata"]:
-        p = table_dir / subdir
-        p.mkdir()  # "On some systems, mode is ignored"
-        p.chmod(0o777)
+    ensure_table_dirs("lsst", "alerts")
 
     cursor = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-    for ext in "httpfs", "avro", "spatial":
+    for ext in (
+        "httpfs",
+        "spatial",
+    ):
         cursor.install_extension(ext)
         cursor.load_extension(ext)
-    cursor.install_extension(
+    for ext in (
+        "avro",
         "iceberg",
-        repository_url="https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw",
-    )
-    cursor.load_extension("iceberg")
+    ):
+        cursor.install_extension(
+            ext,
+            repository_url="https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw",
+        )
+        cursor.load_extension(ext)
     cursor.execute(f"""
         ATTACH 'warehouse' AS iceberg(
             TYPE iceberg, AUTHORIZATION_TYPE none,
@@ -158,7 +201,18 @@ def _mock_iceberg(catalog, _alert_table, monkeypatch):
 
 
 @pytest.fixture
-def integration_client(_mock_iceberg):
+def integration_client(_mock_iceberg, _mock_valkey):
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://testserver"
     )
+
+
+@pytest.fixture
+def cursor(_mock_iceberg):
+    with contextmanager(get_cursor)(get_duckdb()) as cursor:
+        yield cursor
+
+
+@pytest.fixture
+def alert_relation(cursor):
+    return get_relation(cursor)

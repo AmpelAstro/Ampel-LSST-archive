@@ -1,115 +1,155 @@
 import datetime
 from typing import Annotated
 
-import sqlalchemy as sa
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
+    Body,
     Depends,
     HTTPException,
     status,
 )
 from fastapi.responses import RedirectResponse, StreamingResponse
-from sqlalchemy import delete
-from sqlmodel import select
+from glide import ListDirection
+from starlette.concurrency import run_in_threadpool
 
-from ..models import ResultBlob, ResultGroup
-from .db import (
-    AsyncSession,
+from .iceberg import (
+    AlertRelation,
+    Connection,
+    StreamQuery,
+    flatten,
+    table_name_token,
 )
-from .models import ChunkCount, StreamDescription
-from .s3 import Bucket, chunk_object
+from .models import StreamDescription, StreamRecord
 from .settings import settings
+from .valkey import STREAM_TTL, Valkey
 
 router = APIRouter(tags=["stream"])
 
 
-async def get_group(resume_token: str, session: AsyncSession) -> ResultGroup:
-    group = await session.scalar(
-        select(ResultGroup).filter(
-            ResultGroup.name == resume_token,  # type: ignore[arg-type]
+def stream_key(resume_token: str) -> str:
+    return f"stream:{resume_token}"
+
+
+def stream_chunks_key(resume_token: str) -> str:
+    return f"stream:{resume_token}:chunks"
+
+
+def stream_chunk_pending_key(resume_token: str, chunk_id: int) -> str:
+    return f"stream:{resume_token}:chunk:{chunk_id}:pending"
+
+
+def stream_table(resume_token: str) -> str:
+    return f"stream_{resume_token}"
+
+async def create_stream_from_query(
+    query: Annotated[StreamQuery, Body()],
+    alert_relation: AlertRelation,
+    cursor: Connection,
+    tasks: BackgroundTasks,
+    valkey: Valkey,
+):
+    """
+    Create a stream of alerts from the given query. The resulting resume_token
+    can be used to read the stream concurrently from multiple clients.
+    """
+    token = table_name_token()
+    key = f"stream:{token}"
+    table = f"stream_{token}"
+
+    def get_num_rows() -> int:
+        return cursor.sql(f"select count(*) from {table};").fetchone()[0]  # type: ignore[index]
+
+    # create stream in the background
+    async def create_stream() -> None:
+        t0 = datetime.datetime.now(tz=datetime.UTC)
+        await valkey.set(key, "pending", expiry=STREAM_TTL)
+        await run_in_threadpool(query.persist_to, alert_relation, table)
+        t1 = datetime.datetime.now(tz=datetime.UTC)
+        record = StreamRecord(
+            chunk_size=query.chunk_size,
+            started_at=t0,
+            finished_at=t1,
+            expires_at=t1 + query.ttl,
+            items=await run_in_threadpool(get_num_rows),
         )
-    )
-    if not group:
-        raise HTTPException(status_code=404, detail="Stream not found") from None
-    if group.error is None:
+        nchunks = (record.items + query.chunk_size - 1) // query.chunk_size
+        await valkey.set(key, record.model_dump_json())
+        await valkey.lpush(f"{key}:chunks", [str(i) for i in range(nchunks)])
+
+    tasks.add_task(create_stream)
+
+    return {"resume_token": token}
+
+async def purge_expired_streams(valkey: Valkey, cursor: Connection):
+    """
+    Delete expired streams and their associated tables. This should be run
+    periodically as a background task.
+    """
+    valkey_cursor = b"0"
+    while True:
+        valkey_cursor, keys = await valkey.scan(valkey_cursor, match="stream:*")
+        for k in keys:
+            if k.count(b":") != 1:
+                continue
+            info = await valkey.get(k)
+            if info is None or info == "pending" or info == "error":
+                continue
+            record = StreamRecord.model_validate_json(info)
+            if record.expires_at < datetime.datetime.now(tz=datetime.UTC):
+                resume_token = k.decode().rsplit(":", maxsplit=1)[-1]
+                await valkey.delete(
+                    [f"stream:{resume_token}", f"stream:{resume_token}:chunks", f"stream:{resume_token}:chunks:pending"]
+                )
+                cursor.sql(f"drop table if exists stream_{resume_token};")
+        if valkey_cursor == b"0":
+            break
+
+async def get_stream(resume_token: str, valkey: Valkey) -> StreamRecord:
+    info = await valkey.get(stream_key(resume_token))
+    if info is None:
+        raise HTTPException(status_code=404, detail="Stream not found")
+    if info == "pending":
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
             detail={"msg": "queue-populating query has not yet finished"},
         )
-    if group.error:
+    if info == "error":
         raise HTTPException(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
-            detail={"msg": group.msg},
+            detail={"msg": "queue-populating query failed"},
         )
-    return group
+    return StreamRecord.model_validate_json(info)
 
 
-GroupFromToken = Annotated[ResultGroup, Depends(get_group)]
-
-
-async def get_blob(
-    chunk_id: int, session: AsyncSession, group: GroupFromToken
-) -> ResultBlob:
-    blob = await session.scalar(
-        select(ResultBlob)
-        .filter(
-            ResultBlob.group_id == group.id,  # type: ignore[arg-type]
-            ResultBlob.id == chunk_id,  # type: ignore[arg-type]
-        )
-        .with_for_update(nowait=True)
-    )
-    if not blob:
-        raise HTTPException(status_code=404, detail="Blob not found") from None
-    return blob
-
-
-BlobFromChunk = Annotated[ResultBlob, Depends(get_blob)]
+StreamRecordFromToken = Annotated[StreamRecord, Depends(get_stream)]
 
 
 @router.get(
     "/{resume_token}",
-    # response_model=StreamDescription,
+    response_model=StreamDescription,
     response_model_exclude_none=True,
     responses={
         status.HTTP_423_LOCKED: {"description": "Query has not finished"},
         status.HTTP_424_FAILED_DEPENDENCY: {"description": "Query failed"},
     },
 )
-async def stream_get(session: AsyncSession, group: GroupFromToken) -> StreamDescription:
-    pending = ResultBlob.issued.is_(None).label("pending")
-    q = (
-        select(
-            pending,
-            sa.func.count().label("chunks"),
-            sa.func.sum(ResultBlob.count).label("items"),
-            sa.func.sum(ResultBlob.size).label("bytes"),
-        )
-        .where(
-            ResultBlob.group_id == group.id  # type: ignore[arg-type]
-        )
-        .group_by(pending)
-    )
-    p, r = (ChunkCount(chunks=0, items=0, bytes=0) for _ in range(2))
-    for row in await session.execute(q):
-        if row.pending:
-            p = ChunkCount(
-                chunks=row.chunks,
-                items=row.items,
-                bytes=row.bytes,
-            )
-        else:
-            r = ChunkCount(
-                chunks=row.chunks,
-                items=row.items,
-                bytes=row.bytes,
-            )
+async def stream_get(
+    resume_token: str,
+    stream: StreamRecordFromToken,
+    valkey: Valkey,
+) -> StreamDescription:
+    remaining_chunks = (await valkey.llen(f"stream:{resume_token}:chunks")) or 0
+    pending_chunks = (await valkey.llen(f"stream:{resume_token}:chunks:pending")) or 0
     return StreamDescription(
-        post=f"{settings.root_path}/{group.name}/chunk",
-        chunk_size=group.chunk_size,
-        remaining=p,
-        pending=r,
-        started_at=group.created,
-        finished_at=group.resolved,
+        post=f"{settings.root_path}/stream/{resume_token}/chunk",
+        chunk_size=stream.chunk_size,
+        items=stream.items,
+        remaining=remaining_chunks,
+        pending=pending_chunks,
+        started_at=stream.started_at,
+        finished_at=stream.finished_at,
+        expires_at=stream.expires_at,
     )
 
 
@@ -127,47 +167,47 @@ async def stream_get(session: AsyncSession, group: GroupFromToken) -> StreamDesc
     status_code=status.HTTP_303_SEE_OTHER,
 )
 async def stream_claim_chunk(
-    session: AsyncSession,
-    group: GroupFromToken,
+    resume_token: str,
+    stream: StreamRecordFromToken,
+    valkey: Valkey,
 ):
     """
     Get the next available chunk of alerts from the given stream. This chunk will
     be reserved until explicitly released or deleted.
     """
-    blob = await session.scalar(
-        select(ResultBlob)
-        .filter(
-            ResultBlob.group_id == group.id,  # type: ignore[arg-type]
-            ResultBlob.issued.is_(None),  # type: ignore[union-attr]
-        )
-        .with_for_update(skip_locked=True)
+    chunk_id = await valkey.lmove(
+        f"stream:{resume_token}:chunks",
+        f"stream:{resume_token}:chunks:pending",
+        ListDirection.LEFT,
+        ListDirection.LEFT,
     )
-    if not blob:
-        raise HTTPException(status_code=status.HTTP_204_NO_CONTENT)
-    blob.issued = datetime.datetime.now(datetime.UTC)
-    session.add(blob)
+    if chunk_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_204_NO_CONTENT, detail="No more chunks available"
+        )
 
-    return f"{settings.root_path}/stream/{group.name}/chunk/{blob.id}"
+    return f"{settings.root_path}/stream/{resume_token}/chunk/{chunk_id.decode()}"
 
 
 @router.get(
     "/{resume_token}/chunk/{chunk_id}",
     tags=["stream"],
 )
-async def stream_get_chunk(
-    blob: BlobFromChunk,
-    session: AsyncSession,
-    bucket: Bucket,
+def stream_get_chunk(
+    resume_token: str,
+    chunk_id: int,
+    stream: StreamRecordFromToken,
+    cursor: Connection,
+    valkey: Valkey,
 ) -> StreamingResponse:
     """
     Download a chunk of alerts
     """
-    obj = await bucket.Object(blob.uri)
-
-    return StreamingResponse(
-        chunk_object(obj, settings.stream_chunk_bytes),
-        media_type=await obj.content_type,
+    relation = cursor.sql(
+        f"select * from {stream_table(resume_token)} offset {chunk_id * stream.chunk_size} limit {stream.chunk_size};"
     )
+
+    return flatten(relation)
 
 
 @router.delete(
@@ -176,15 +216,14 @@ async def stream_get_chunk(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def stream_delete_chunk(
-    blob: BlobFromChunk,
-    session: AsyncSession,
-    bucket: Bucket,
+    resume_token: str,
+    chunk_id: int,
+    valkey: Valkey,
 ):
     """
     Delete a consumed chunk
     """
-    await (await bucket.Object(blob.uri)).delete()
-    await session.delete(blob)
+    await valkey.lrem(f"stream:{resume_token}:chunks:pending", 0, str(chunk_id))
 
 
 @router.post(
@@ -193,14 +232,15 @@ async def stream_delete_chunk(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def stream_release_chunk(
-    blob: BlobFromChunk,
-    session: AsyncSession,
+    resume_token: str,
+    chunk_id: int,
+    valkey: Valkey,
 ):
     """
     Mark the given chunk as unconsumed.
     """
-    blob.issued = None
-    session.add(blob)
+    await valkey.lrem(f"stream:{resume_token}:chunks:pending", 0, str(chunk_id))
+    await valkey.lpush(f"stream:{resume_token}:chunks", [str(chunk_id)])
 
 
 @router.delete(
@@ -208,36 +248,17 @@ async def stream_release_chunk(
     tags=["stream"],
     status_code=status.HTTP_204_NO_CONTENT,
 )
-async def stream_delete(resume_token: str, session: AsyncSession, bucket: Bucket):
-    group = (
-        await session.execute(
-            select(ResultGroup).filter(
-                ResultGroup.name == resume_token,  # type: ignore[arg-type]
-            )
-        )
-    ).scalar()
-    if group:
-        # bulk delete blobs from S3 in groups of 1000
-        async for uris in (
-            await session.stream_scalars(
-                select(ResultBlob.uri)
-                .filter(
-                    ResultBlob.group_id == group.id,  # type: ignore[arg-type]
-                )
-                .execution_options(yield_per=1000)
-            )
-        ).partitions():
-            response = await bucket.meta.client.delete_objects(
-                Bucket=bucket.name, Delete={"Objects": [{"Key": key} for key in uris]}
-            )
-            assert response["ResponseMetadata"]["HTTPStatusCode"] < 300  # noqa: PLR2004
-
-        await session.execute(
-            delete(ResultBlob).where(
-                ResultBlob.group_id == group.id,  # type: ignore[arg-type]
-            )
-        )
-        await session.delete(group)
-        await session.commit()
-    else:
-        raise HTTPException(status_code=404, detail=f"Stream {resume_token} not found")
+async def stream_delete(
+    resume_token: str,
+    stream: StreamRecordFromToken,
+    cursor: Connection,
+    valkey: Valkey,
+):
+    cursor.sql(f"drop table if exists {stream_table(resume_token)}")
+    await valkey.delete(
+        [
+            f"stream:{resume_token}",
+            f"stream:{resume_token}:chunks",
+            f"stream:{resume_token}:chunks:pending",
+        ]
+    )

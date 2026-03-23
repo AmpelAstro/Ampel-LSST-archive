@@ -1,9 +1,11 @@
+import base64
 import functools
 import json
 import operator
+import secrets
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager, suppress
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache
 from logging import getLogger
 from pathlib import Path
@@ -23,7 +25,7 @@ from duckdb import (
 )
 from duckdb.sqltypes import DuckDBPyType
 from fastapi import Depends, HTTPException, Query, status
-from pydantic import AfterValidator
+from pydantic import AfterValidator, Field
 
 from .models import ConeConstraint, HEALpixConstraint, StrictModel, TimeConstraint
 from .settings import settings
@@ -57,7 +59,9 @@ def get_duckdb() -> DuckDBPyConnection:
             URL_STYLE 'path'
         );
         ATTACH 'warehouse' AS iceberg(
-            TYPE iceberg, AUTHORIZATION_TYPE none,
+            TYPE iceberg,
+            AUTHORIZATION_TYPE none,
+            PURGE_REQUESTED true,
             ENDPOINT '{settings.catalog_endpoint_url}'
         );
     """)
@@ -285,6 +289,9 @@ class AlertQuery(StrictModel):
     def flatten(self, relation: DuckDBPyRelation) -> list[dict]:
         return flatten(self.execute(relation))
 
+    def persist_to(self, relation: DuckDBPyRelation, table_name: str) -> None:
+        return self.execute(relation).create(table_name)
+
     def columns(self) -> Sequence[Expression]:
         if self.include is None:
             return [
@@ -294,3 +301,20 @@ class AlertQuery(StrictModel):
             ]
         exclude_set = set(self.exclude) if self.exclude else set()
         return [ColumnExpression(col) for col in self.include if col not in exclude_set]
+
+
+class StreamQuery(AlertQuery):
+    chunk_size: Annotated[int, Field(..., ge=1, le=10000)] = 1000
+    ttl: Annotated[
+        timedelta, Field(..., gt=timedelta(seconds=1), lt=timedelta(days=7))
+    ] = timedelta(days=1)
+
+
+def table_name_token() -> str:
+    return (
+        base64.b64encode(secrets.token_bytes(32))
+        .replace(b"+", b"")
+        .replace(b"/", b"")
+        .rstrip(b"=")
+        .decode("ascii")
+    )
