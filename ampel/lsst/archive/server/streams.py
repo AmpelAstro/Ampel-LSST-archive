@@ -9,7 +9,7 @@ from fastapi import (
     HTTPException,
     status,
 )
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse
 from glide import ListDirection
 from starlette.concurrency import run_in_threadpool
 
@@ -42,6 +42,7 @@ def stream_chunk_pending_key(resume_token: str, chunk_id: int) -> str:
 def stream_table(resume_token: str) -> str:
     return f"stream_{resume_token}"
 
+
 async def create_stream_from_query(
     query: Annotated[StreamQuery, Body()],
     alert_relation: AlertRelation,
@@ -63,7 +64,7 @@ async def create_stream_from_query(
     # create stream in the background
     async def create_stream() -> None:
         t0 = datetime.datetime.now(tz=datetime.UTC)
-        await valkey.set(key, "pending", expiry=STREAM_TTL)
+        await valkey.set(key, b"pending", expiry=STREAM_TTL)
         await run_in_threadpool(query.persist_to, alert_relation, table)
         t1 = datetime.datetime.now(tz=datetime.UTC)
         record = StreamRecord(
@@ -81,6 +82,7 @@ async def create_stream_from_query(
 
     return {"resume_token": token}
 
+
 async def purge_expired_streams(valkey: Valkey, cursor: Connection):
     """
     Delete expired streams and their associated tables. This should be run
@@ -88,33 +90,42 @@ async def purge_expired_streams(valkey: Valkey, cursor: Connection):
     """
     valkey_cursor = b"0"
     while True:
-        valkey_cursor, keys = await valkey.scan(valkey_cursor, match="stream:*")
+        next_cursor, keys = await valkey.scan(valkey_cursor, match="stream:*")
+        valkey_cursor = next_cursor  # type: ignore[assignment]
+        assert isinstance(keys, list)
         for k in keys:
             if k.count(b":") != 1:
                 continue
             info = await valkey.get(k)
-            if info is None or info == "pending" or info == "error":
+            if info is None:
+                continue
+            if info in {b"pending", b"error"}:
                 continue
             record = StreamRecord.model_validate_json(info)
             if record.expires_at < datetime.datetime.now(tz=datetime.UTC):
                 resume_token = k.decode().rsplit(":", maxsplit=1)[-1]
                 await valkey.delete(
-                    [f"stream:{resume_token}", f"stream:{resume_token}:chunks", f"stream:{resume_token}:chunks:pending"]
+                    [
+                        f"stream:{resume_token}",
+                        f"stream:{resume_token}:chunks",
+                        f"stream:{resume_token}:chunks:pending",
+                    ]
                 )
                 cursor.sql(f"drop table if exists stream_{resume_token};")
         if valkey_cursor == b"0":
             break
 
+
 async def get_stream(resume_token: str, valkey: Valkey) -> StreamRecord:
     info = await valkey.get(stream_key(resume_token))
     if info is None:
         raise HTTPException(status_code=404, detail="Stream not found")
-    if info == "pending":
+    if info == b"pending":
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
             detail={"msg": "queue-populating query has not yet finished"},
         )
-    if info == "error":
+    if info == b"error":
         raise HTTPException(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             detail={"msg": "queue-populating query failed"},
@@ -163,12 +174,12 @@ async def stream_get(
         status.HTTP_423_LOCKED: {"description": "Query has not finished"},
         status.HTTP_424_FAILED_DEPENDENCY: {"description": "Query failed"},
     },
+    dependencies=[Depends(get_stream)],
     response_class=RedirectResponse,
     status_code=status.HTTP_303_SEE_OTHER,
 )
 async def stream_claim_chunk(
     resume_token: str,
-    stream: StreamRecordFromToken,
     valkey: Valkey,
 ):
     """
@@ -198,8 +209,7 @@ def stream_get_chunk(
     chunk_id: int,
     stream: StreamRecordFromToken,
     cursor: Connection,
-    valkey: Valkey,
-) -> StreamingResponse:
+) -> list[dict]:
     """
     Download a chunk of alerts
     """
@@ -247,10 +257,10 @@ async def stream_release_chunk(
     "/{resume_token}",
     tags=["stream"],
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(get_stream)],
 )
 async def stream_delete(
     resume_token: str,
-    stream: StreamRecordFromToken,
     cursor: Connection,
     valkey: Valkey,
 ):
