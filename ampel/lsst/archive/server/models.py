@@ -262,7 +262,7 @@ class HEALpixRegionCountQuery(HEALpixRegionQueryBase): ...
 # https://github.com/pydantic/pydantic/issues/7000
 StampData = Annotated[
     bytes,
-    PlainSerializer(lambda v: b64encode(v), return_type=str, when_used="json"),
+    PlainSerializer(b64encode, return_type=str, when_used="json"),
 ]
 
 
