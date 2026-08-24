@@ -13,12 +13,16 @@ from tempfile import NamedTemporaryFile
 from typing import Annotated
 from urllib.parse import urljoin
 
+import astropy.units as u
 import httpx
+from astropy.coordinates import angular_separation
 from duckdb import (
     ColumnExpression,
+    ConstantExpression,
     DuckDBPyConnection,
     DuckDBPyRelation,
     Expression,
+    FunctionExpression,
     SQLExpression,
     StarExpression,
     connect,
@@ -33,6 +37,15 @@ from .settings import settings
 log = getLogger(__name__)
 
 
+def _angular_separation(ra1, dec1, ra2, dec2):
+    """Compute the angular separation between two points on the sky."""
+    return (
+        angular_separation(ra1 * u.deg, dec1 * u.deg, ra2 * u.deg, dec2 * u.deg)
+        .to(u.deg)
+        .value
+    )
+
+
 @cache
 def get_duckdb() -> DuckDBPyConnection:
     conn = connect(
@@ -43,14 +56,12 @@ def get_duckdb() -> DuckDBPyConnection:
             else "true",
         }
     )
-    for ext in "httpfs", "avro", "iceberg", "spatial":
+    for ext in "httpfs", "avro", "iceberg":
         conn.load_extension(ext)
+    conn.create_function(
+        "angular_separation", _angular_separation, [float, float, float, float], float
+    )
     conn.execute(f"""
-        CREATE OR REPLACE MACRO angular_separation(lon1, lat1, lon2, lat2) AS
-            st_distance_sphere(
-                st_point(lat1, lon1),
-                st_point(lat2, lon2)
-            )/6370986*180/pi();
         CREATE OR REPLACE SECRET secret (
             TYPE s3,
             PROVIDER config,
@@ -238,9 +249,12 @@ class AlertQuery(StrictModel):
         )
         if isinstance(self.location, ConeConstraint):
             return condition & (
-                # NB: should use FunctionExpression here, but it can't parse the namespaced function name
-                SQLExpression(
-                    f"memory.angular_separation(diaSource.ra, diaSource.dec, {self.location.ra}, {self.location.dec})"
+                FunctionExpression(
+                    "angular_separation",
+                    ColumnExpression("diaSource.ra"),
+                    ColumnExpression("diaSource.dec"),
+                    ConstantExpression(self.location.ra),
+                    ConstantExpression(self.location.dec),
                 )
                 <= self.location.radius  # type: ignore[operator]
             )
@@ -295,7 +309,7 @@ class AlertQuery(StrictModel):
     def columns(self) -> Sequence[Expression]:
         if self.include is None:
             return [
-                StarExpression(exclude=tuple(self.exclude))
+                StarExpression(exclude=self.exclude)
                 if self.exclude is not None
                 else StarExpression()
             ]
