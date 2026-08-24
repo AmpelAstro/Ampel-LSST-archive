@@ -242,10 +242,10 @@ class AlertQuery(StrictModel):
         condition = (
             functools.reduce(
                 operator.or_,
-                ((pix > span[0]) & (pix < span[1]) for span in ranges),  # type: ignore[operator]
+                ((pix > span[0]) & (pix < span[1]) for span in ranges),
             )
-            & (pix > ranges.lefts[0])  # type: ignore[operator]
-            & (pix < ranges.rights[-1])  # type: ignore[operator]
+            & (pix > ranges.lefts[0])
+            & (pix < ranges.rights[-1])
         )
         if isinstance(self.location, ConeConstraint):
             return condition & (
@@ -256,7 +256,7 @@ class AlertQuery(StrictModel):
                     ConstantExpression(self.location.ra),
                     ConstantExpression(self.location.dec),
                 )
-                <= self.location.radius  # type: ignore[operator]
+                <= self.location.radius
             )
         return condition
 
@@ -266,9 +266,9 @@ class AlertQuery(StrictModel):
         conditions = []
         epoch = ColumnExpression("diaSource.midpointMjdTai")
         if self.time.gt is not None:
-            conditions.append(epoch > self.time.gt.mjd_tai())  # type: ignore[operator]
+            conditions.append(epoch > self.time.gt.mjd_tai())
         if self.time.lt is not None:
-            conditions.append(epoch < self.time.lt.mjd_tai())  # type: ignore[operator]
+            conditions.append(epoch < self.time.lt.mjd_tai())
         return functools.reduce(operator.and_, conditions) if conditions else None
 
     def get_condition(self) -> Expression | None:
