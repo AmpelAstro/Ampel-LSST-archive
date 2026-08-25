@@ -1,4 +1,5 @@
 import os
+import platform
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -116,27 +117,58 @@ def ensure_table_dirs(warehouse_dir: Path):
 
 
 @pytest.fixture(scope="session")
-def _alert_table(catalog, ensure_table_dirs):
+def os_arch():
+    """Fixture to get the OS architecture."""
+    os = {"Darwin": "osx", "Linux": "linux", "Windows": "windows"}[platform.system()]
+    arch = {"x86_64": "amd64", "arm64": "arm64"}[platform.machine()]
+    return f"{os}_{arch}"
+
+
+def download_extension(url: str, dest: Path):
+    """Download a DuckDB extension from a URL to a destination path."""
+    response = httpx.get(url)
+    response.raise_for_status()
+    dest.write_bytes(response.content)
+
+
+@pytest.fixture(scope="session")
+def _iceberg_extension(os_arch, tmp_path_factory):
+    cursor = duckdb.connect(config={"allow_unsigned_extensions": "true"})
+    version_row = cursor.sql("pragma version").fetchone()
+    assert version_row is not None, "Failed to get DuckDB version"
+    version = version_row[1]
+
+    base_url = f"https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw/{version}/{os_arch}"
+    tmp = tmp_path_factory.mktemp("extensions")
+
+    installed = {
+        s[0]
+        for s in cursor.sql(
+            "select extension_name from duckdb_extensions() where install_mode!='NOT_INSTALLED';"
+        ).fetchall()
+    }
+    for ext in (
+        "httpfs",
+        "avro",
+        "iceberg",
+    ):
+        if ext not in installed:
+            path = tmp / f"{ext}.duckdb_extension"
+            download_extension(
+                f"{base_url}/{ext}.duckdb_extension",
+                path,
+            )
+            cursor.execute(f"INSTALL '{path.as_posix()}';")
+        cursor.execute(f"LOAD '{ext}';")
+
+
+@pytest.fixture(scope="session")
+def _alert_table(catalog, ensure_table_dirs, _iceberg_extension):
     """Fixture to create a DuckDB connection to the Iceberg catalog."""
 
     ensure_table_dirs("lsst", "alerts")
 
     cursor = duckdb.connect(config={"allow_unsigned_extensions": "true"})
-    for ext in (
-        "httpfs",
-        "spatial",
-    ):
-        cursor.install_extension(ext)
-        cursor.load_extension(ext)
-    for ext in (
-        "avro",
-        "iceberg",
-    ):
-        cursor.install_extension(
-            ext,
-            repository_url="https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw",
-        )
-        cursor.load_extension(ext)
     cursor.execute(f"""
         ATTACH 'warehouse' AS iceberg(
             TYPE iceberg, AUTHORIZATION_TYPE none,
