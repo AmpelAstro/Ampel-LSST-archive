@@ -18,7 +18,7 @@ ENV PIP_DEFAULT_TIMEOUT=100 \
 RUN pip install "poetry==$POETRY_VERSION"
 RUN python -m venv /venv
 
-RUN apt-get update && apt-get install -y build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y build-essential libpq-dev wget && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml poetry.lock ./
 RUN VIRTUAL_ENV=/venv poetry install --no-root --no-directory --all-extras --without dev
@@ -26,8 +26,14 @@ RUN VIRTUAL_ENV=/venv poetry install --no-root --no-directory --all-extras --wit
 ARG DUCKDB_EXTENSION_REPO=https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw
 
 # pre-install duckdb extensions
-RUN echo "import duckdb\nfor ext in ['httpfs', 'spatial']: duckdb.install_extension(ext); duckdb.load_extension(ext)" | /venv/bin/python
-RUN echo "import duckdb\nfor ext in ['avro', 'iceberg']: duckdb.connect(config={'allow_unsigned_extensions': 'true'}).install_extension(ext, repository_url='$DUCKDB_EXTENSION_REPO');" | /venv/bin/python
+# NB: download extensions manually as installing from https requires httpfs extension, which we are trying to install here
+RUN DUCKDB_VERSION=$(/venv/bin/python -c "import duckdb; print(duckdb.default_connection().execute('pragma version;').fetchone()[1])") && \
+    OS_ARCH=$(case $(uname -m) in x86_64) echo "linux_amd64" ;; aarch64) echo "linux_arm64" ;; *) echo "unsupported architecture: $(uname -m)" && exit 1 ;; esac) && \    
+    for ext in httpfs avro iceberg; do \
+        wget -q "${DUCKDB_EXTENSION_REPO}/${DUCKDB_VERSION}/${OS_ARCH}/${ext}.duckdb_extension.gz"; \
+        gunzip "${ext}.duckdb_extension.gz"; \
+        /venv/bin/python -c "import duckdb; duckdb.connect(config={'allow_unsigned_extensions': 'true'}).execute('INSTALL \'"${ext}".duckdb_extension\';')"; \
+    done
 
 COPY ampel ampel
 COPY README.md README.md
