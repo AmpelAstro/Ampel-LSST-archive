@@ -1,6 +1,8 @@
+import io
 import os
 import platform
 import sys
+import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -138,27 +140,29 @@ def _iceberg_extension(os_arch, tmp_path_factory):
     assert version_row is not None, "Failed to get DuckDB version"
     version = version_row[1]
 
-    base_url = f"https://syncandshare.desy.de/public.php/dav/files/PPGeSD8ceELYbiw/{version}/{os_arch}"
-    tmp = tmp_path_factory.mktemp("extensions")
-
     installed = {
         s[0]
         for s in cursor.sql(
             "select extension_name from duckdb_extensions() where install_mode!='NOT_INSTALLED';"
         ).fetchall()
     }
-    for ext in (
-        "httpfs",
-        "avro",
-        "iceberg",
-    ):
-        if ext not in installed:
-            path = tmp / f"{ext}.duckdb_extension"
-            download_extension(
-                f"{base_url}/{ext}.duckdb_extension",
-                path,
-            )
-            cursor.execute(f"INSTALL '{path.as_posix()}';")
+    to_install = ["httpfs", "avro", "iceberg"]
+    if not set(to_install).issubset(installed) or True:
+        r = httpx.get(
+            f"https://github.com/jvansanten/duckdb-iceberg/releases/download/{version}/{os_arch}.zip",
+            follow_redirects=True,
+        )
+        r.raise_for_status()
+        tmp = tmp_path_factory.mktemp("extensions")
+        with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+            for info in zf.filelist:
+                if (
+                    info.filename.endswith(".duckdb_extension")
+                    and "__MACOSX" not in info.filename
+                ):
+                    path = zf.extract(info, tmp)
+                    cursor.execute(f"INSTALL '{path}';")
+    for ext in to_install:
         cursor.execute(f"LOAD '{ext}';")
 
 
