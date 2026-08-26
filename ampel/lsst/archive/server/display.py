@@ -216,7 +216,7 @@ def get_bandpass_templates(diaObjectId: int, connection: Connection):
 
 @REQ_TIME.labels("query_alerts").time()
 @router.post("/alerts/query")
-def query_alerts(query: AlertQuery, alerts: AlertRelation):
+def query_alerts(query: AlertQuery, alerts: AlertRelation) -> list[dict]:
     """Execute an arbitrary query against the alerts table"""
     return query.flatten(alerts)
 
