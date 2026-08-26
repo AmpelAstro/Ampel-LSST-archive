@@ -33,7 +33,7 @@ dependencies = [
     "pyarrow (>=25.0.1,<26)",
     "hishel (>=1.1.9,<2.0.0)",
     "httpx (>=0.28.1,<1)",
-    "prometheus-fastapi-instrumentator (>=7.1.0,<8.0.0)",
+    "prometheus-fastapi-instrumentator (>=8,<9)",
     # exactly same version as in duckdb-iceberg submodule
     "duckdb (==1.6.0.dev358)",
     "orjson (>=3.11.7,<4.0.0)",
@@ -79,6 +79,7 @@ filterwarnings = [
     "default::pytest.PytestUnraisableExceptionWarning",
     "ignore:datetime\\.datetime\\.utcnow\\(\\) is deprecated:DeprecationWarning:botocore",
     "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning:testcontainers",
+    "ignore::async_lru.AlruCacheLoopResetWarning",
 ]
 
 [tool.mypy]
