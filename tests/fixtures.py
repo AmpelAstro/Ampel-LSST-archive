@@ -11,9 +11,9 @@ import httpx
 import pytest
 from fastapi import status
 from pyiceberg.catalog import load_catalog
+from testcontainers.community.redis import RedisContainer
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.wait_strategies import HttpWaitStrategy, LogMessageWaitStrategy
-from testcontainers.redis import RedisContainer
 
 from ampel.lsst.archive.server.app import app
 from ampel.lsst.archive.server.iceberg import (
