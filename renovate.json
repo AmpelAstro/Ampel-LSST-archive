@@ -4,5 +4,11 @@
     "github>AmpelProject/renovate-config//regexManagers/githubActionsVersions",
     "github>AmpelProject/renovate-config//regexManagers/dockerfileVersions",
     "github>AmpelProject/renovate-config//regexManagers/precommitVersions"
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["duckdb"],
+      "enabled": false
+    }
   ]
 }
