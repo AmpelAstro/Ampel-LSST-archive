@@ -1,7 +1,6 @@
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import ORJSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from zstd_asgi import ZstdMiddleware
 
@@ -42,7 +41,6 @@ app = FastAPI(
     description=DESCRIPTION,
     version="3.1.0",
     root_path=settings.root_path,
-    default_response_class=ORJSONResponse,
     openapi_tags=[
         {"name": "alerts", "description": "Retrieve alerts"},
         {

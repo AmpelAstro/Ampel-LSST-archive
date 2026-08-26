@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 import numpy as np
 import plotly.express as px
@@ -9,7 +9,6 @@ from fastapi import (
     Depends,
     Query,
 )
-from fastapi.responses import ORJSONResponse
 from hishel.fastapi import cache
 
 from .alert import AlertFromId
@@ -60,10 +59,10 @@ def display_alert(alert: AlertFromId, cutouts: CutoutPlotsFromId):
 
 
 @REQ_TIME.labels("get_photopoints_for_diaobject").time()
-@router.get("/diaobject/{diaObjectId}/summaryplots")
+@router.get("/diaobject/{diaObjectId}/summaryplots", dependencies=[cache_response])
 def get_photopoints_for_diaobject(
     diaObjectId: int, connection: Connection
-) -> ORJSONResponse:
+) -> dict[str, Any]:
     # append diaSource to history, unnest, uniqify, and project
     # there doesn't seem to be a way to push projections down through any list operation
     df = connection.execute(
@@ -177,23 +176,15 @@ def get_photopoints_for_diaobject(
         yaxis_range=[-max_yoffset, max_yoffset],
     )
 
-    # return as ORJSONResponse to avoid serializability check (we already know
-    # ORJSON can handle numpy arrays)
-    response = ORJSONResponse(
-        content={
-            "lightcurve": lightcurve_fig.to_plotly_json(),
-            "centroid": centroid_fig.to_plotly_json(),
-            "_ids_for_groups": [
-                ids_for_groups[band]
-                for band in category_orders["band"]
-                if band in ids_for_groups
-            ],
-        }
-    )
-    # manually call cache dependency; fastapi doesn't do this when you return a
-    # response directly
-    cache_response.dependency(response)
-    return response
+    return {
+        "lightcurve": lightcurve_fig.to_plotly_json(),
+        "centroid": centroid_fig.to_plotly_json(),
+        "_ids_for_groups": [
+            ids_for_groups[band]
+            for band in category_orders["band"]
+            if band in ids_for_groups
+        ],
+    }
 
 
 @router.get("/diaobject/{diaObjectId}/templates", dependencies=[cache_response])
