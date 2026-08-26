@@ -75,13 +75,13 @@ class AstropyTime(BaseModel):
     """
 
     val: str | float | int
-    val2: None | float | int = None
-    format: None | str = None
-    scale: None | Literal["tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc"] = None
-    precision: None | int = None
-    in_subfmt: None | str = None
-    out_subfmt: None | str = None
-    location: None | tuple[float, float, float] = None
+    val2: float | int | None = None
+    format: str | None = None
+    scale: Literal["tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc"] | None = None
+    precision: int | None = None
+    in_subfmt: str | None = None
+    out_subfmt: str | None = None
+    location: tuple[float, float, float] | None = None
 
     def to_astropy_time(self) -> Time:
         return Time(
@@ -271,9 +271,9 @@ class AlertBase(BaseModel):
 
 
 class AlertCutouts(AlertBase):
-    cutoutScience: None | StampData = None
-    cutoutTemplate: None | StampData = None
-    cutoutDifference: None | StampData = None
+    cutoutScience: StampData | None = None
+    cutoutTemplate: StampData | None = None
+    cutoutDifference: StampData | None = None
 
 
 class AsyncResult(BaseModel):

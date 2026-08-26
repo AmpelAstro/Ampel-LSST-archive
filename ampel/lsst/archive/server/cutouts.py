@@ -111,7 +111,7 @@ def get_halfmax_ellipse(flux: fits.PrimaryHDU, psf: fits.ImageHDU) -> EllipsePar
 def make_cutout_plotly(
     label: str,
     data: bytes,
-    significance_threshold: None | float = 3.0,
+    significance_threshold: float | None = 3.0,
     cmap="viridis",
 ) -> go.Figure:
     fig = go.Figure()

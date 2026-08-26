@@ -24,7 +24,7 @@ router = APIRouter(tags=["display"])
 
 def _get_cutout_plots(
     alert: AlertFromId,
-    sigma: Annotated[None | float, Query(ge=0)] = None,
+    sigma: Annotated[float | None, Query(ge=0)] = None,
 ) -> CutoutPlots:
     return CutoutPlots(
         **{

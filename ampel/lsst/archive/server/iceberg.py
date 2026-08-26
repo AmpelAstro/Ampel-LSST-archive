@@ -225,8 +225,8 @@ class AlertQuery(StrictModel):
     include: list[Column] | None = None
     exclude: list[Column] | None = None
     condition: str | None
-    location: None | ConeConstraint | HEALpixConstraint = None
-    time: None | TimeConstraint = None
+    location: ConeConstraint | HEALpixConstraint | None = None
+    time: TimeConstraint | None = None
     limit: int | None = None
     order: str | None = None
     offset: int = 0
