@@ -23,16 +23,16 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "fastapi (>=0.129.0,<0.130.0)",
+    "fastapi (>=0.129.0,<1)",
     "pydantic-settings (>=2.13.0,<3.0.0)",
-    "uvicorn (>=0.41.0,<0.42.0)",
+    "uvicorn (>=0.41.0,<1)",
     "zstd-asgi (>=1.0,<2.0)",
     "colorspacious (>=1.1.2,<2.0.0)",
-    "astropy-healpix (>=2.0.1,<2.1.0)",
+    "astropy-healpix (>=2.0.1,<3.0.0)",
     "plotly (>=6.5.2,<7.0.0)",
-    "pyarrow (>=25.0.1,<25.1.0)",
+    "pyarrow (>=25.0.1,<26)",
     "hishel (>=1.1.9,<2.0.0)",
-    "httpx (>=0.28.1,<0.29.0)",
+    "httpx (>=0.28.1,<1)",
     "prometheus-fastapi-instrumentator (>=7.1.0,<8.0.0)",
     # exactly same version as in duckdb-iceberg submodule
     "duckdb (==1.6.0.dev358)",

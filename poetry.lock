@@ -3020,4 +3020,4 @@ pyiceberg = ["pyiceberg"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12, <4"
-content-hash = "2ec7f4da6868a7d9106972e1a48e9139dc870fc59f571a8eb594242edf6013f0"
+content-hash = "783a01baa9e77793f866ab1afa1ce49095a03739f7f36ed7b3956031b54fea0c"
