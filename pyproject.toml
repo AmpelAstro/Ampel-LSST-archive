@@ -48,7 +48,7 @@ pyiceberg = ["pyiceberg (>=0.11.0,<0.12.0)"]
 [dependency-groups]
 dev = [
     "pytest (>=9.0.2,<10.0.0)",
-    "mypy (>=1.13,<2.0)",
+    "mypy (>=2.3,<2.4)",
     "scipy-stubs (>=1.17.0.2,<2.0.0.0)",
     "pyarrow-stubs (>=20.0.0.20251215,<21.0.0.0)",
     "testcontainers (>=4.14.1,<5.0.0)",
