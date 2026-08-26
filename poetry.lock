@@ -150,35 +150,33 @@ typing = ["narwhals (>=1.42.0)", "pandas-stubs (>=2.0.0)"]
 
 [[package]]
 name = "astropy-healpix"
-version = "1.1.3"
+version = "2.0.1"
 description = "BSD-licensed HEALPix for Astropy"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "astropy_healpix-1.1.3-cp310-abi3-macosx_10_9_x86_64.whl", hash = "sha256:182b0b6a833afa9daa0c73c8394a2a067da7f42cd27c838e1ced7592979ae934"},
-    {file = "astropy_healpix-1.1.3-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:c518d4a8af61097be139fa825ffeb391606207fc0c40e7c60fc078ff620d13a5"},
-    {file = "astropy_healpix-1.1.3-cp310-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:706d2f17bbc97d5348512482ad5e49620724334163a810f23efa54187bb6176a"},
-    {file = "astropy_healpix-1.1.3-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:49dc32289c7fd98c8dbe6794326d9298920dd9212f99d3bcdef31a19a1cde8ea"},
-    {file = "astropy_healpix-1.1.3-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:0c851836c9327065608c73d67fd8c00462d365c368038cd285bc60570d470e1b"},
-    {file = "astropy_healpix-1.1.3-cp310-abi3-win32.whl", hash = "sha256:e9c5a81d936120c8aa11e042da6529a2255708150de515364eba79a5dd094ca1"},
-    {file = "astropy_healpix-1.1.3-cp310-abi3-win_amd64.whl", hash = "sha256:14133113b137821c1ea1229dc9b1eb9d187ed227ea9c8de60d3eb81296dea67b"},
-    {file = "astropy_healpix-1.1.3-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:da885033f7cf319906f58c61087e137f0e473e78503fe94bf951f569ebd3b033"},
-    {file = "astropy_healpix-1.1.3-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:0cd93955d0b30bcee07b09b8ddf6e45cc39895f257fab1469524990e3a5b3e9e"},
-    {file = "astropy_healpix-1.1.3-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0a798bfdf2176426cf4947c4905f8862c29032635ea513d281ea27cc3a0303e4"},
-    {file = "astropy_healpix-1.1.3-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fe96eeee5b3dd19f4ce7decef4f95a63ff2564652ec62392fbcabc2bd18095d6"},
-    {file = "astropy_healpix-1.1.3-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:638796f0c532cb4c77b28594b032e5d7de7c88b53b80ded8190b6f32adebd2bd"},
-    {file = "astropy_healpix-1.1.3-cp314-cp314t-win32.whl", hash = "sha256:e83e677f3d66a4d2e1705457915df7021d98936d6167d2780fe2fd2e83a94911"},
-    {file = "astropy_healpix-1.1.3-cp314-cp314t-win_amd64.whl", hash = "sha256:22327a7d00d28e89b1f182a2ee62d27dc204d0a0bebacfa0d3eabbe9dc25bf8f"},
-    {file = "astropy_healpix-1.1.3.tar.gz", hash = "sha256:f520d83abe8215d3e8e1a37b2bd91171ee36a6f55f110d5a2db863d75d81b3b7"},
+    {file = "astropy_healpix-2.0.1-cp310-abi3-macosx_10_9_x86_64.whl", hash = "sha256:218549b1a73c58953b00628da6c5db0f5fbfd7ebe65eb8e376150ac6d5f9a955"},
+    {file = "astropy_healpix-2.0.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:8528bd4040becee1b0d47a8b008b43ad007a47449860afe96f70cb2429d644f5"},
+    {file = "astropy_healpix-2.0.1-cp310-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:179119d5a69e7b9245919cbe04c3e6bf0a485516b36c29f3402951aad5452251"},
+    {file = "astropy_healpix-2.0.1-cp310-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c092c54124c48f8d98e04fb22f4b2aa4c8675e65d81c351523f41377f9a6df22"},
+    {file = "astropy_healpix-2.0.1-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:ce875a29c598c1a99f8f68351daeb4173463044dce4f1c7ebfe8c233ec5e9a49"},
+    {file = "astropy_healpix-2.0.1-cp310-abi3-win_amd64.whl", hash = "sha256:82a2d5d285076e44be7cb26e0435cf5a42eec4be79d893fd61b570c7440d9e99"},
+    {file = "astropy_healpix-2.0.1-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:9654beeec16a31fa038e64b3a3218d32b0a985299be7504725a46c647af59b42"},
+    {file = "astropy_healpix-2.0.1-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:e5fd994d26d1bb2c3d4d5c8682d60353f15d6e0d5b967e6bbb2ec8181731743e"},
+    {file = "astropy_healpix-2.0.1-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:78f76785852bcc748f5efab8bb4f2ab1fe959d7a998b48e7ed1e59a46cbf0e51"},
+    {file = "astropy_healpix-2.0.1-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:02cefde735da1fe74654e786e02286261b04cc43f5c908a86a8457b2989ac2aa"},
+    {file = "astropy_healpix-2.0.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:65bee7b70f35ddb81d6b6c849c5bf46768afbce6869395e4f9e0a5c27cb0ce17"},
+    {file = "astropy_healpix-2.0.1-cp314-cp314t-win_amd64.whl", hash = "sha256:0d63cac22a7b0896ef3e3d28aafcc1dfa3f8ac639d0ae6bf600d060062338107"},
+    {file = "astropy_healpix-2.0.1.tar.gz", hash = "sha256:0e3f1c94064c45da779900cb90c938df7aef99a924abb23eeb893b16540e77e6"},
 ]
 
 [package.dependencies]
-astropy = ">=5"
-numpy = ">=1.25"
+astropy = ">=6.1"
+numpy = ">=2"
 
 [package.extras]
-docs = ["matplotlib", "sphinx-astropy"]
+docs = ["matplotlib", "sphinx-astropy[confv3] (>=1.11)"]
 test = ["hypothesis", "pytest-astropy"]
 
 [[package]]
@@ -3022,4 +3020,4 @@ pyiceberg = ["pyiceberg"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12, <4"
-content-hash = "b2a7c508ac1ece947733bde1e5631bc6697a4c8e2875c88cfbb857948309493f"
+content-hash = "904bfd921a0ac62f8243f45399965a832be893f787cad4c00f340f9da8ec35e0"
