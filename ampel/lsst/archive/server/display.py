@@ -51,7 +51,7 @@ cache_response = cache(max_age=settings.cache_max_age, public=True)
     "/alert/{diaSourceId}",
     dependencies=[cache_response],
 )
-def display_alert(alert: AlertFromId, cutouts: CutoutPlotsFromId):
+def display_alert(alert: AlertFromId, cutouts: CutoutPlotsFromId) -> AlertDisplay:
     return AlertDisplay(
         alert={k: v for k, v in alert.items() if not k.startswith("cutout")},
         cutouts=cutouts,

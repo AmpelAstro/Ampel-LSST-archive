@@ -82,3 +82,21 @@ async def test_refs(integration_client: httpx.AsyncClient, alert_table_branch):
     assert len(data) == 2
     assert any(ref["name"] == "main" for ref in data)
     assert any(ref["name"] == alert_table_branch for ref in data)
+
+
+@pytest.mark.asyncio
+async def test_alert_display(integration_client: httpx.AsyncClient):
+    response = await integration_client.post(
+        "/display/alerts/query",
+        json={"condition": "true", "include": ["diaSourceId"], "limit": 1},
+    )
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    diaSourceId = data[0]["diaSourceId"]
+
+    response = await integration_client.get(f"/display/alert/{diaSourceId}")
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "alert" in data
+    assert "cutouts" in data
