@@ -39,6 +39,7 @@ const AlertView = () => {
   const [science, setScience] = useState(initState());
   const [diff, setDiff] = useState(initState());
   const [alertData, setAlertData] = useState({});
+  const [error, setError] = useState(null);
 
   // Sync local state if the URL param changes (e.g., via navigate or manual URL entry)
   useEffect(() => {
@@ -47,6 +48,7 @@ const AlertView = () => {
       setScience(initState());
       setDiff(initState());
       setAlertData({});
+      setError(null);
       setIdState(diaSourceId);
     }
   }, [diaSourceId, idState]);
@@ -85,7 +87,7 @@ const AlertView = () => {
         }));
         setAlertData(response.data.alert);
       } catch (error) {
-        //   setError(error);
+          setError(error.message || "Failed to fetch alert data");
       } finally {
         //   setLoading(false);
       }
@@ -96,6 +98,11 @@ const AlertView = () => {
 
   return (
     <div className="mx-1 mt-2">
+      {error && (
+        <div className="alert alert-danger" role="alert">
+          {error}
+        </div>
+      )}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h5 className="mb-0">
           Alert {alertData.diaSourceId}
