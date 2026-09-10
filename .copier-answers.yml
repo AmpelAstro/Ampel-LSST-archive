@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier
-_commit: v0.0.15
+_commit: v0.0.16
 _src_path: https://github.com/AmpelAstro/copier-ampel
 plugin_description: LSST alert archive for the Ampel system
 plugin_name: LSST-archive
