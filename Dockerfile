@@ -9,7 +9,7 @@ WORKDIR /app
 FROM base AS builder
 
 # renovate: datasource=pypi depName=poetry versioning=pep440
-ARG POETRY_VERSION=2.4.2
+ARG POETRY_VERSION=2.4.3
 
 ENV PIP_DEFAULT_TIMEOUT=100 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \

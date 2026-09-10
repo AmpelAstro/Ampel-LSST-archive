@@ -44,7 +44,7 @@ dependencies = [
 
 [project.optional-dependencies]
 image = ["scipy (>=1.17.0,<2.0.0)"]
-pyiceberg = ["pyiceberg (>=0.11.0,<0.12.0)"]
+pyiceberg = ["pyiceberg (>=0.12.0,<0.13.0)"]
 [dependency-groups]
 dev = [
     "pytest (>=9.0.2,<10.0.0)",

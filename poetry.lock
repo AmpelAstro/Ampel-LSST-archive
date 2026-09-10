@@ -2127,81 +2127,89 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pyiceberg"
-version = "0.11.1"
+version = "0.12.0"
 description = "Apache Iceberg is an open table format for huge analytic datasets"
 optional = true
 python-versions = "<4.0.0,>=3.10.0"
 groups = ["main"]
 markers = "extra == \"pyiceberg\""
 files = [
-    {file = "pyiceberg-0.11.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:89c347170a691e3b8d072519f36790b9c19a2263ec0af0144c873994ecfe55eb"},
-    {file = "pyiceberg-0.11.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:138983e96a5c473aae1e1cd6143aacf02ccc9bbbf6180f15fa2588f99531188b"},
-    {file = "pyiceberg-0.11.1-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e08c268e12d54ea629a1f123bf7cb9587bdd57fd7bcdac22394dc6272a18668f"},
-    {file = "pyiceberg-0.11.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:23ed91f8d2fa75a109708338f80a7addd2f37c93a8b0e6c9d220f1427939b81f"},
-    {file = "pyiceberg-0.11.1-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:b4b91f1b1bac135c077326d30a1876f917e6c36b844a2e329b148fb9cb7aa660"},
-    {file = "pyiceberg-0.11.1-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:7770e7bdee34549e8baf28b8626e6552de7894d869465a7c95fd9af33b4cbeb0"},
-    {file = "pyiceberg-0.11.1-cp310-cp310-win_amd64.whl", hash = "sha256:ccac408873f65b8954858ef08d4b098841301e232afc1b14e3eada489d303a7f"},
-    {file = "pyiceberg-0.11.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:ba98d6a41ec0b7c81dd85d764f15653d6abbbbd69d92630677c43f92dd50d924"},
-    {file = "pyiceberg-0.11.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:6400774e6820760eb6c322f6feace43fe7267deb9f8d508f10bf258887a9c4d5"},
-    {file = "pyiceberg-0.11.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1663d79fc8400903992c63f79b3908b9298c623138e8929bf36c559231e082d3"},
-    {file = "pyiceberg-0.11.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:856c7fca5ed780ed44f60bceb92d6b311ebc008a2249415b8f6045201d4f5530"},
-    {file = "pyiceberg-0.11.1-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:6cf94756fb6a822d20a5a64f44840e6633ebf8b1deb3ce01057bff1cc03b01c2"},
-    {file = "pyiceberg-0.11.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:8bd52c1891ae74cee21a4ebe8325953310a2e0af5352d70f47f5461422fcce2d"},
-    {file = "pyiceberg-0.11.1-cp311-cp311-win_amd64.whl", hash = "sha256:65a7ad892a570045b0de2db6af17119162880aebc05a0c125ce2db7dab36f17e"},
-    {file = "pyiceberg-0.11.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:cd423b8ee2f75fc9db09158875abe5e2c952a26ae5e521c3265ab2f9d3511ddf"},
-    {file = "pyiceberg-0.11.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:e273242cdca56029af694d7ce18075d47a74d034326d663ff6dd2655a6f44825"},
-    {file = "pyiceberg-0.11.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b347d3cc8510f8fbe191956fcda7da372ebb3302789acefca08e352345959003"},
-    {file = "pyiceberg-0.11.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bba3a35b4648694783aeae5b77c235a57191c8b1b375c8602b03ae56a6cf4fe7"},
-    {file = "pyiceberg-0.11.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:a0f958cbca18d05846e3081dfff8575e73d45595441d659847479656dc76f91d"},
-    {file = "pyiceberg-0.11.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:8c62636a1e9d8a1fc74ffb70383939b9cd93f2c9ee8e12015a50dd75c98a989e"},
-    {file = "pyiceberg-0.11.1-cp312-cp312-win_amd64.whl", hash = "sha256:1d6b6f0c1e7dd8357f1ba56524bfc870d04ad3c00979db291784a7145497ad3b"},
-    {file = "pyiceberg-0.11.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:b7ec5db19feab98a31fcd5caccf4a9a4e83f96933d1ca393ba7aea665710c2bb"},
-    {file = "pyiceberg-0.11.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:cec0616d2ba6e7dda6327089a2f34ec723aa9ac2c389857ef0b83f65fb135dd6"},
-    {file = "pyiceberg-0.11.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ddb360da76c62c7c23ec3da40e1af48e6712a563905fea2d1a8911ff7a3b6c4d"},
-    {file = "pyiceberg-0.11.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4d8790f420ebc484236017edba59182cf2a21bd3e4224a0bd0760a9c7268e96a"},
-    {file = "pyiceberg-0.11.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:ae27ba4d37925d5b2cff192acaa70c8bb114d632bbc527cc91fea0370702b866"},
-    {file = "pyiceberg-0.11.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:db66a4e0fdfbf4090631d59c3f65e960d9a5561e9259f6f3993cbe91e396837e"},
-    {file = "pyiceberg-0.11.1-cp313-cp313-win_amd64.whl", hash = "sha256:eb3a0a3e630ee89758eb96b39b456f4697732351fb0c080e9498ea578f9b71f9"},
-    {file = "pyiceberg-0.11.1.tar.gz", hash = "sha256:366fe0d5a74e3cf1d4e7cbf3c49e308da60e7835ea268667be9185388f05d7a5"},
+    {file = "pyiceberg-0.12.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:21f7462f4777bcda2af0a7c270a51525542a79ff37cf1334a82e0dd80717aa92"},
+    {file = "pyiceberg-0.12.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:97132565255b94831ce858837cc333a1ac837a116e1ce233299e0b6a67f82418"},
+    {file = "pyiceberg-0.12.0-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:82e7164eb23c46b567d7fafb38058d7ca13aec5d4ef59d0ee701cfdeda004dfe"},
+    {file = "pyiceberg-0.12.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8c6484af01afa37a3f3cfb299b4fd8b14b138f95955b57cb01c10acd88171d28"},
+    {file = "pyiceberg-0.12.0-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:b54c151610a4f9e198fa8c13c881c4c4d4f1beaa4571023dd79428aa1bbe7f5e"},
+    {file = "pyiceberg-0.12.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:5a667fd37415626fbfc7b01e373ef66a09f0ddd185875a11e868a5ef128da1f6"},
+    {file = "pyiceberg-0.12.0-cp310-cp310-win_amd64.whl", hash = "sha256:2c0bcdff87f92b35c4374a6f680b3c6e25e5a87e40fa61df49a563dc8ae13e44"},
+    {file = "pyiceberg-0.12.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:ae611854967d691f3158ae06407622072a9c442e29f5fba073ecbedb4d0b8b66"},
+    {file = "pyiceberg-0.12.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:63929b5664512c67bb89603c5ca8c568a08b4a9922ec86675b339214d362ea81"},
+    {file = "pyiceberg-0.12.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:cd913759564d08444567690c27a187b408d06e6c82a17ba4e4f98aaf90031e86"},
+    {file = "pyiceberg-0.12.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2dec70218c8e81f1630b9d7184b760cd161eff936127745355ba94100a4e7380"},
+    {file = "pyiceberg-0.12.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:29fb5032276aaac1ad01f98125622012067be075cc70053a0dbd0d61e4a6e8e5"},
+    {file = "pyiceberg-0.12.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:0b432f97a7774a211980f8d135c12a75221d0696204a0dc67f9b750a5c1a3332"},
+    {file = "pyiceberg-0.12.0-cp311-cp311-win_amd64.whl", hash = "sha256:bb4d04f93c1b98c19c365dc2bc8115e8396a1b2e1eb99ec9e04ade262c82c565"},
+    {file = "pyiceberg-0.12.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:0079c44d065fc70df09deb03dc7297314c31b8d9708559c0bec2b8f851ffbf21"},
+    {file = "pyiceberg-0.12.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:baf35f45ed5ee1a14c8db8264de31fb942b9d0d21913262f0d444d2df45e8176"},
+    {file = "pyiceberg-0.12.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b20c36d08b4b12da572b10c20594be78eee7e51845040443c45231d2ad57c28a"},
+    {file = "pyiceberg-0.12.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:17dca4377c76b7b047a2e807f009595b8f0b090c792a84ecb427c2fa683a96e2"},
+    {file = "pyiceberg-0.12.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:5902178a7d46bc4b783a4026c474178a8cb4c9c413b47cdb2e520df4082ed255"},
+    {file = "pyiceberg-0.12.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:cbb9f060d170b1b072e2ba2e821f5c76302e5731452f37fa63e104334f3feba1"},
+    {file = "pyiceberg-0.12.0-cp312-cp312-win_amd64.whl", hash = "sha256:0fcce46f5633491b50ebf8ed94fbf5c8d3b6bed76902cf28361368e9169e16f2"},
+    {file = "pyiceberg-0.12.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:498763380220a1d8881d52c218318e884be28c3ea5824cbbcb22a042c12a9ad3"},
+    {file = "pyiceberg-0.12.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:307e46f46ffd48e0b270acf10bc5892f09e8c9fa2c828e9ffbf32ad480504bae"},
+    {file = "pyiceberg-0.12.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e055cc459d7b6eba21bd62eedbda0d0845ade0c2161a04c0f8eb252ec3e2d7d1"},
+    {file = "pyiceberg-0.12.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:893e35df750644dab19bb873522d15914335e22368a711703176ea187c26b655"},
+    {file = "pyiceberg-0.12.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:f53afc4ae649d35d43eee2b32515f22bc64fa0d4921c359ed9e7744ca1101ae0"},
+    {file = "pyiceberg-0.12.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:fd57f73a55dc9439f183e13aa1d9c79ac4274564bdd412da735314e4e26b77ff"},
+    {file = "pyiceberg-0.12.0-cp313-cp313-win_amd64.whl", hash = "sha256:934c30733c3debf9b13bbcdb85c4cfdaf4b72a808f7af1dd027a38e4e2baef07"},
+    {file = "pyiceberg-0.12.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:7bb480f6ac06e4afb3de1e1a46781d071e3f1cfcc5802de9e48e6289b3546c0a"},
+    {file = "pyiceberg-0.12.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:16f2f03c20d01ced43198aedfffb620163e7debc21d33ff02cc18e107aa43e69"},
+    {file = "pyiceberg-0.12.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:115ecdabd4c47d64b4eda1a4271a4c4eea0514411832f11adc7cdf6630e57a66"},
+    {file = "pyiceberg-0.12.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:eb3db80cd510ddc34246059f4631661aa5b5d94c36b131499c56e746f22db3c5"},
+    {file = "pyiceberg-0.12.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:82e0250f6c9baa11644efa44da5f968205c158c75126deb1b1730ce158cb3f76"},
+    {file = "pyiceberg-0.12.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:e73a396826d745b2a6ac0d3b5151c8cdcbb090e81bfc31f07139cb463e62dbe3"},
+    {file = "pyiceberg-0.12.0-cp314-cp314-win_amd64.whl", hash = "sha256:ee7b572d209a39224a093661f462f95551b2bd3982a07aecd80c7dd560be15ea"},
+    {file = "pyiceberg-0.12.0.tar.gz", hash = "sha256:19f165d298054f9436108691098b60fa0fa99d0eff5fb884700c43b29334a39d"},
 ]
 
 [package.dependencies]
-cachetools = ">=5.5,<7.0"
-click = ">=7.1.1,<9.0.0"
+cachetools = ">=5.5"
+click = ">=7.1.1"
 fsspec = ">=2023.1.0"
-mmh3 = ">=4.0.0,<6.0.0"
+mmh3 = ">=4.0.0"
 pydantic = ">=2.0,<2.4.0 || >2.4.0,<2.4.1 || >2.4.1,<2.12.0 || >2.12.0,<2.12.1 || >2.12.1,<3.0"
-pyparsing = ">=3.1.0,<4.0.0"
-pyroaring = ">=1.0.0,<2.0.0"
-requests = ">=2.20.0,<3.0.0"
-rich = ">=10.11.0,<15.0.0"
-strictyaml = ">=1.7.0,<2.0.0"
-tenacity = ">=8.2.3,<10.0.0"
-zstandard = ">=0.13.0,<1.0.0"
+pyparsing = ">=3.1.0"
+pyroaring = ">=1.0.0"
+requests = ">=2.20.0"
+rich = ">=10.11.0"
+strictyaml = ">=1.7.0"
+tenacity = ">=8.2.3"
+zstandard = ">=0.13.0"
 
 [package.extras]
 adlfs = ["adlfs (>=2024.7.0)"]
 bigquery = ["google-cloud-bigquery (>=3.33.0,<4)"]
 bodo = ["bodo (>=2025.7.4)"]
-daft = ["daft (>=0.5.0)"]
-datafusion = ["datafusion (>=51,<52)"]
-duckdb = ["duckdb (>=0.5.0,<2.0.0)", "pyarrow (>=17.0.0)"]
+daft = ["daft (>=0.7.10)"]
+datafusion = ["datafusion (>=53,<54)"]
+duckdb = ["duckdb (>=0.5.0)", "pyarrow (>=18.0.0)"]
 dynamodb = ["boto3 (>=1.24.59)"]
 entra-auth = ["azure-identity (>=1.25.1)"]
 gcp-auth = ["google-auth (>=2.4.0)"]
 gcsfs = ["gcsfs (>=2023.1.0)"]
+geoarrow = ["geoarrow-pyarrow (>=0.2.0)"]
 glue = ["boto3 (>=1.24.59)"]
 hf = ["huggingface-hub (>=0.24.0)"]
-hive = ["thrift (>=0.13.0,<1.0.0)"]
-hive-kerberos = ["kerberos (>=1.3.1,<2)", "thrift (>=0.13.0,<1.0.0)", "thrift-sasl (>=0.4.3)"]
-pandas = ["pandas (>=1.0.0)", "pyarrow (>=17.0.0)"]
-polars = ["polars (>=1.21.0,<2)"]
-pyarrow = ["pyarrow (>=17.0.0)", "pyiceberg-core (>=0.5.1,<0.9.0)"]
-pyiceberg-core = ["pyiceberg-core (>=0.5.1,<0.9.0)"]
-ray = ["pandas (>=1.0.0)", "pyarrow (>=17.0.0)", "ray (>=2.10.0,<3.0.0)"]
+hive = ["thrift (>=0.13.0)"]
+hive-kerberos = ["kerberos (>=1.3.1)", "thrift (>=0.13.0)", "thrift-sasl (>=0.4.3)"]
+pandas = ["pandas (>=1.0.0)", "pyarrow (>=18.0.0)"]
+polars = ["polars (>=1.21.0)"]
+pyarrow = ["pyarrow (>=18.0.0)"]
+pyiceberg-core = ["pyiceberg-core (>=0.10.1,<0.11.0)"]
+ray = ["pandas (>=1.0.0)", "pyarrow (>=18.0.0)", "ray (>=2.10.0)"]
 rest-sigv4 = ["boto3 (>=1.24.59)"]
 s3fs = ["s3fs (>=2023.1.0)"]
-snappy = ["python-snappy (>=0.6.0,<1.0.0)"]
+snappy = ["python-snappy (>=0.6.0)"]
 sql-postgres = ["psycopg2-binary (>=2.9.6)", "sqlalchemy (>=2.0.18,<3)"]
 sql-sqlite = ["sqlalchemy (>=2.0.18,<3)"]
 
@@ -2925,41 +2933,41 @@ standard = ["httptools (>=0.8.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "
 
 [[package]]
 name = "valkey-glide"
-version = "2.5.1"
+version = "2.5.2"
 description = "Valkey GLIDE Async client. Supports Valkey and Redis OSS."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "valkey_glide-2.5.1-cp310-cp310-macosx_10_7_x86_64.whl", hash = "sha256:d66f47bbc5cea7155b0b3ca002043bfd950c09a9ac08e10923a6bcb0a3aa0a1c"},
-    {file = "valkey_glide-2.5.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:47a666862faa47766d4c4814203c3b9f9a8cb466200fd5f71e330eef6ed0d8f1"},
-    {file = "valkey_glide-2.5.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4cecd82dab35f30d96785b1405ebe3a6931dd858c8f26a0b7a12b46609e75212"},
-    {file = "valkey_glide-2.5.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:44435ed9fdb6322a4b167c9f56fdc0145a1fab4736dd2659165bbb5358d3a68f"},
-    {file = "valkey_glide-2.5.1-cp311-cp311-macosx_10_7_x86_64.whl", hash = "sha256:d9bbf26f9ea2b72ef0b8541dfefa479a82a69bdec77fce917192a262893edfda"},
-    {file = "valkey_glide-2.5.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:94256d3335f4c31f19ad1ff02447d9eecd94b8c9e8d51c7b77811277c957e807"},
-    {file = "valkey_glide-2.5.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d46a9903acb1204deefad88162ac77404f052c7d51ab9d5851d2335ed2fda1e8"},
-    {file = "valkey_glide-2.5.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0e5c17169d07564f0cc23b78c4904c8e03063c8750d8ccf413d229ce9a3092d5"},
-    {file = "valkey_glide-2.5.1-cp312-cp312-macosx_10_7_x86_64.whl", hash = "sha256:75da4cb54fe6a0e03a78681237545aa0638dd5a6dd0ff51af6ff4cacf9f99443"},
-    {file = "valkey_glide-2.5.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:787010bbce1b8f270ae5d74ca8af15bca3bbc625e1a5467fb01025864bc4e792"},
-    {file = "valkey_glide-2.5.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:de2e202a8376c6b67735bd589ce0e46683f8a782fcb1745b0b44cce768e13856"},
-    {file = "valkey_glide-2.5.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9ab1c7ce52b098fcb0ee6223136a024fc90a8ae1c600db298c30c044d1b47ee2"},
-    {file = "valkey_glide-2.5.1-cp313-cp313-macosx_10_7_x86_64.whl", hash = "sha256:55c87ecc3146480adaddf42d659b688089ca417596208ca9df5c2249c8f9e6fe"},
-    {file = "valkey_glide-2.5.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:ae6b0cedd3d2aafdc53c460bdfe4d0319d10301fd2128a56d41486e49de88dfe"},
-    {file = "valkey_glide-2.5.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e8a3c5298899ea18fc7e40438643e2f8ee15955fe9bba66ce5daf3dfd29462f2"},
-    {file = "valkey_glide-2.5.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bb5e0094d576ce99a2453c9fdd923f70732db6f4b59a722c27c420343d96b75d"},
-    {file = "valkey_glide-2.5.1-cp314-cp314-macosx_10_7_x86_64.whl", hash = "sha256:1bc5d0e0241aa5b78c398b981fe19801e36c09572c1dac69286a9a3c817e0b35"},
-    {file = "valkey_glide-2.5.1-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:ec658ed7770c05f3ea431ca1301e47d0a24cf27c4c23ca30eb030f7e0ac7488d"},
-    {file = "valkey_glide-2.5.1-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e2cdb26952b650e25af4a14360f65364b8015e49e2967779ba850c9e62c1f237"},
-    {file = "valkey_glide-2.5.1-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:696635581f0692f640b94021b4cfbc2ec01108f6ae02f25dfea3cfdaa98331de"},
-    {file = "valkey_glide-2.5.1-cp39-cp39-macosx_10_7_x86_64.whl", hash = "sha256:f5e733adc4718b93c5b228de7e543a6641e231d5839202ce7b22487e079059e7"},
-    {file = "valkey_glide-2.5.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:3ffd8f0fdb6ef982161a2350ad1562e5e345bea263b81304c7282f3385deac20"},
-    {file = "valkey_glide-2.5.1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d6b81727c4d7a3b49f10172787296c87d6ef8d729fb958de358b278d5a6c563f"},
-    {file = "valkey_glide-2.5.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:12fff287f02caa9302d7c64d0520c3cee86e0f952ec55a537a4f9378889265d7"},
-    {file = "valkey_glide-2.5.1-pp311-pypy311_pp73-macosx_10_7_x86_64.whl", hash = "sha256:f656ef6e722d6ab4a28bc66e36ef616dff28622bc712c41f4172ac1e7c4826d8"},
-    {file = "valkey_glide-2.5.1-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:65b2add9f19a2e48080130ee968af45dc14e8457b5db20262703a4604afc478b"},
-    {file = "valkey_glide-2.5.1-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0c9b725afe94f0515e296003942d6c96c5090a956f2217f6305dc87fa14dfa51"},
-    {file = "valkey_glide-2.5.1-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a131c08951b865f753f1bd42f7db19c6a96e7c4faf9dc78718f8909fc95eb8b4"},
-    {file = "valkey_glide-2.5.1.tar.gz", hash = "sha256:b2efb23c987a995ad6ce2a72616996638137dd2504ac262bdd6c045378394090"},
+    {file = "valkey_glide-2.5.2-cp310-cp310-macosx_10_7_x86_64.whl", hash = "sha256:65425b602445c0fdfba453cbea5f5a7e1adeda914c9597d87c92e2855c911b7b"},
+    {file = "valkey_glide-2.5.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:b556a04b6bdb426bed6a14580a3ee1ccb941ab7d9d6bc57876f8cb63e266efc3"},
+    {file = "valkey_glide-2.5.2-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ca792a4b008f3dcf0047cdf5246f92596b7e2c1abac418fac674ca22751e8e33"},
+    {file = "valkey_glide-2.5.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:03c62efb5bc6180f6da828802973fda3431df42b9edf68874b3c34bf185aa01f"},
+    {file = "valkey_glide-2.5.2-cp311-cp311-macosx_10_7_x86_64.whl", hash = "sha256:fe2b7a54ef88ed89ef06e83438476664e1e842fe0fac38eb0a1c8a6280c735a0"},
+    {file = "valkey_glide-2.5.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:1655f28687414594956b5d211bffd9b5ad925152f968dd545cce753a54e2a3b5"},
+    {file = "valkey_glide-2.5.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:010ee966afe7197323d6316d5eea2739c52abeb95fa4ae3b823562bc7f50424e"},
+    {file = "valkey_glide-2.5.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a02345e3de2f66b13a38fd1392f49427d0ca6134b0e10afe4af6c03f27f9259a"},
+    {file = "valkey_glide-2.5.2-cp312-cp312-macosx_10_7_x86_64.whl", hash = "sha256:955a6031c588f1af7a99c322afe6e6b4504d382b2668905cdac4e2427f54a27e"},
+    {file = "valkey_glide-2.5.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:30dae8574c0d19477646c4ca2f32864f6883f3c2f17ac6ae9617436fcf5614ee"},
+    {file = "valkey_glide-2.5.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8dce2d6709fb2bb659ffc1711680ccec0ae4b08364bbd608d7495208d96da714"},
+    {file = "valkey_glide-2.5.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d25148e2874673ed94860339f8311fb64cdbdaffbc751023e5cf610aa2860b42"},
+    {file = "valkey_glide-2.5.2-cp313-cp313-macosx_10_7_x86_64.whl", hash = "sha256:1193cd6b7f31c5bbee69645fecd69c540f0b43f127f72392726eb3518b7e0a9f"},
+    {file = "valkey_glide-2.5.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:1fd431161641f00fe0153c55f771089ba1797c3acba6e0e04c0440f8c3f06c1c"},
+    {file = "valkey_glide-2.5.2-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ec16f809d958ec881b9fa84e9e4133d0cf133785b610cfd8f91518e5ecf5013a"},
+    {file = "valkey_glide-2.5.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:17b386327ab37f9a916c9b51a0c9b8aa5e7e08441a2e33c0b6bf6a312394ae1b"},
+    {file = "valkey_glide-2.5.2-cp314-cp314-macosx_10_7_x86_64.whl", hash = "sha256:9491914d05427cebe93b5e9551af6d2b53448068b801604ccbd8115447188f3d"},
+    {file = "valkey_glide-2.5.2-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:b9aa56ff9c9ad3e2ccd5c0840dbfd18bbdfe072e2e6695327e45028d7abb88d8"},
+    {file = "valkey_glide-2.5.2-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d8aa77a254dcc0bb2c253511a8307f5664cd2f41d814eb306bfdf6993ad647a3"},
+    {file = "valkey_glide-2.5.2-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:307c96a54af8d7e68ec3f47b545ec15ebf9b8589d67921c653f0d1cfcb9400df"},
+    {file = "valkey_glide-2.5.2-cp39-cp39-macosx_10_7_x86_64.whl", hash = "sha256:21ad4148cb05c5d453ab1a0e89511e9473cc7fde7224d01dee4476747c538a81"},
+    {file = "valkey_glide-2.5.2-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:5f175b5b3ccfdeaf090fb061c7f3f62f3aa9db23b460107d5fff289369eda6b1"},
+    {file = "valkey_glide-2.5.2-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:107debef54362124c5cbcd1bd8b16647fd565c397714b121374928894c79d645"},
+    {file = "valkey_glide-2.5.2-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a081f370c7ad9e93e91439a6dfe058b9055b605bb97380d0a688d10befc143fd"},
+    {file = "valkey_glide-2.5.2-pp311-pypy311_pp73-macosx_10_7_x86_64.whl", hash = "sha256:adbc76382e88d13fe5bea43c49918fd64ca59fe56340164a8c52c296f1889841"},
+    {file = "valkey_glide-2.5.2-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:925d28916fd7465b8af9b5b5c356b4cb77969f97f95bf2639031446add8eb8d5"},
+    {file = "valkey_glide-2.5.2-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c1d7f24726f50e7c6cbfe1a387f5d8cb1a2741497635d8ad9d5db1d1ffffa0eb"},
+    {file = "valkey_glide-2.5.2-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8a7b7e11de350242398c600ef9dc21949b9d22a9dc71e43d6301fd548634f3d5"},
+    {file = "valkey_glide-2.5.2.tar.gz", hash = "sha256:71dc532fd2c371b3712b5def45d2773047bf5a3d7f5de9405e068c769777b7e8"},
 ]
 
 [package.dependencies]
@@ -3191,4 +3199,4 @@ pyiceberg = ["pyiceberg"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12, <4"
-content-hash = "6eb30c20db9d5ea198223bb5d6bd894b4621a10b976d6dba875b1a23106d94ae"
+content-hash = "296c52bac80b938a8d5248d95f3d04156f37a50b2033ad57ff7863942421e5c1"
