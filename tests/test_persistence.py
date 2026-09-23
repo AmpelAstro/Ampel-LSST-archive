@@ -3,11 +3,48 @@ import os
 
 import pytest
 import pytest_asyncio
+from confluent_kafka import deserializing_consumer, serializing_producer
+from confluent_kafka.schema_registry.avro import AvroDeserializer
 from fastapi import status
+from kafka_mocha.core.kconsumer import KConsumer
+from kafka_mocha.core.kproducer import KProducer
 
 from ampel.lsst.archive.server.iceberg import AlertQuery, StreamQuery, table_name_token
+from ampel.lsst.archive.server.kafka import get_schema_registry_client
 from ampel.lsst.archive.server.models import StreamDescription, StreamRecord
 from ampel.lsst.archive.server.valkey import get_valkey_client
+
+
+@pytest.fixture
+def _mock_kafka(monkeypatch):
+    """Redefine SerializingProducer and DeserializingConsumer to use KProducer and KConsumer for testing."""
+    monkeypatch.setattr(
+        "confluent_kafka.serializing_producer.SerializingProducer",
+        type(
+            "MockSerializingProducer",
+            (KProducer,),
+            {
+                "__init__": serializing_producer.SerializingProducer.__init__,
+                "produce": serializing_producer.SerializingProducer.produce,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        "confluent_kafka.deserializing_consumer.DeserializingConsumer",
+        type(
+            "MockDeserializingConsumer",
+            (KConsumer,),
+            {
+                "__init__": deserializing_consumer.DeserializingConsumer.__init__,
+                "poll": deserializing_consumer.DeserializingConsumer.poll,
+            },
+        ),
+    )
+    # KMessage insists that the value be str|bytes, but cimpl.Message has no such restriction
+    monkeypatch.setattr(
+        "kafka_mocha.models.kmodels.KMessage.set_value",
+        lambda self, value: setattr(self, "_value", value),
+    )
 
 
 def test_persistence(alert_relation, cursor, ensure_table_dirs):
@@ -29,6 +66,62 @@ def test_persistence(alert_relation, cursor, ensure_table_dirs):
         limit=1,
     ).flatten(persistent_relation)
     assert len(rows) == 1
+
+
+@pytest.mark.usefixtures("_mock_kafka")
+@pytest.mark.asyncio(loop_scope="module")
+async def test_stream_to_kafka(integration_client):
+
+    query = AlertQuery(
+        include=[
+            "diaSourceId",
+            "target_name",
+            "observation_reason",
+            "diaSource",
+            "diaObject",
+            "prvDiaSources",
+            "prvDiaForcedSources",
+        ],
+        condition=None,
+        limit=1,
+    )
+
+    response = await integration_client.post(
+        "/kafka/topic/test/produce",
+        json=query.model_dump(mode="json"),
+        headers={
+            "x-kafka-username": "user",
+            "x-kafka-password": "pass",
+        },
+    )
+    response.raise_for_status()
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    token = response.json()["token"]
+
+    response = await integration_client.get(f"/kafka/task/{token}/status")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["status"] == "done"
+    assert response.json()["messages"] == 1
+    consumer = deserializing_consumer.DeserializingConsumer(
+        {
+            "bootstrap.servers": "localhost:9092",
+            "group.id": "test-group",
+            "value.deserializer": AvroDeserializer(
+                get_schema_registry_client(),
+                conf={
+                    "use.latest.version": True,
+                    "subject.name.strategy": lambda *args: "alert-packet",
+                },
+            ),
+        }
+    )
+    consumer.subscribe(["test"])
+    msg = consumer.poll(timeout=1.0)
+    assert msg is not None
+    assert msg.error() is None
+    alert = msg.value()
+    assert isinstance(alert, dict)
+    assert alert["diaSourceId"] is not None
 
 
 @pytest_asyncio.fixture(loop_scope="module")
