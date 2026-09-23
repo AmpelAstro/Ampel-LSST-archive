@@ -1,3 +1,5 @@
+import contextlib
+
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -511,6 +513,11 @@ app.post(
     tags=["stream"],
     status_code=status.HTTP_204_NO_CONTENT,
 )(purge_expired_streams)
+
+with contextlib.suppress(ImportError):
+    from .kafka import router as kafka_router
+
+    app.include_router(kafka_router, prefix="/kafka")
 
 # Collect metrics for all endpoints except /metrics
 instrumentator = Instrumentator(
