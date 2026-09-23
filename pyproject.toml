@@ -45,7 +45,7 @@ dependencies = [
 [project.optional-dependencies]
 image = ["scipy (>=1.17.0,<2.0.0)"]
 pyiceberg = ["pyiceberg (>=0.12.0,<0.13.0)"]
-kafka = ["confluent-kafka[schema-registry] (>=2.15.1,<3.0.0)"]
+kafka = ["confluent-kafka[schema-registry] (>=2.15.1,<3.0.0)", "fastavro (>=1.12.2,<2.0.0)"]
 [dependency-groups]
 dev = [
     "pytest (>=9.0.2,<10.0.0)",

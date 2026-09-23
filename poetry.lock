@@ -896,7 +896,7 @@ version = "1.12.2"
 description = "Fast read/write of AVRO files"
 optional = false
 python-versions = ">=3.9"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "fastavro-1.12.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:c7c6d26c731a0e1e8e7d4ae8f13ae524eb6ec0e90d99c8147a19fdbae14eb807"},
     {file = "fastavro-1.12.2-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7caeecf519eff50f007ca4bee16b6e0a8252e5fe682c94432192a20867239888"},
@@ -950,6 +950,7 @@ files = [
     {file = "fastavro-1.12.2-cp39-cp39-win_amd64.whl", hash = "sha256:e235dfdabb51993bcd4a8f45c3a54f21a782f7f92b3def0648b0ace45a1b1ac7"},
     {file = "fastavro-1.12.2.tar.gz", hash = "sha256:3c79502d56cf6b76210032e1c53494ddfbc73c140bccf2ef4092b3f0825323ab"},
 ]
+markers = {main = "extra == \"kafka\""}
 
 [package.extras]
 codecs = ["backports.zstd ; python_version < \"3.14\"", "cramjam", "lz4"]
@@ -3747,10 +3748,10 @@ starlette = ">=0.22.0"
 
 [extras]
 image = ["scipy"]
-kafka = ["confluent-kafka"]
+kafka = ["confluent-kafka", "fastavro"]
 pyiceberg = ["pyiceberg"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12, <4"
-content-hash = "7a7e1c3d5e867b5501d1e1f91f91faf97cc3dc6eadedf14f728395422c98c31c"
+content-hash = "f3753dc788630978a9e23aadfa48f885c0e0c1dc3237ed3c8a1fc5c15fc5f9a2"
