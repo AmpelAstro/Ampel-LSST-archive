@@ -514,11 +514,6 @@ app.post(
     status_code=status.HTTP_204_NO_CONTENT,
 )(purge_expired_streams)
 
-with contextlib.suppress(ImportError):
-    from .kafka import router as kafka_router
-
-    app.include_router(kafka_router, prefix="/kafka")
-
 # Collect metrics for all endpoints except /metrics
 instrumentator = Instrumentator(
     excluded_handlers=["/metrics"],
@@ -534,6 +529,12 @@ if settings.root_path:
 
 # Expose metrics at the root
 instrumentator.expose(app)
+
+# include (internal) kafka router if available
+with contextlib.suppress(ImportError):
+    from .kafka import router as kafka_router
+
+    app.include_router(kafka_router, prefix="/kafka")
 
 
 @app.get("/health", tags=["health"])
