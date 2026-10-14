@@ -224,20 +224,52 @@ Column = Annotated[str, AfterValidator(is_valid_column)]
 class AlertQuery(StrictModel):
     include: Annotated[
         list[Column] | None,
-        Field(examples=[["diaSource", "target_name", "observation_reason"]]),
+        Field(
+            description="Columns to include in the result. If not specified, all columns are included.",
+            examples=[["diaSource", "target_name", "observation_reason"]],
+        ),
     ] = None
     exclude: Annotated[
         list[Column] | None,
-        Field(examples=[["cutoutTemplate", "cutoutScience", "cutoutDifference"]]),
+        Field(
+            description="Columns to exclude from the result. If include is not specified, all columns except these are included.",
+            examples=[["cutoutTemplate", "cutoutScience", "cutoutDifference"]],
+        ),
     ] = None
     condition: Annotated[
-        str | None, Field(examples=[["diaSource.reliability > 0.95"]])
+        str | None,
+        Field(
+            description="Arbitrary SQL expression to filter the results by. May include any field in the alert schema.",
+            examples=["diaSource.reliability > 0.95"],
+        ),
     ] = None
-    location: ConeConstraint | HEALpixConstraint | None = None
-    time: TimeConstraint | None = None
-    limit: int | None = None
-    order: Annotated[str | None, Field(examples=[["diaSource.visit"]])] = None
-    offset: int = 0
+    location: Annotated[
+        ConeConstraint | HEALpixConstraint | None,
+        Field(description="Constraint on diaSource.ra, diaSource.dec"),
+    ] = None
+    time: Annotated[
+        TimeConstraint | None,
+        Field(
+            description="Constraint on diaSource.midpointMjdTai, specified in terms of astropy.time.Time"
+        ),
+    ] = None
+    limit: Annotated[
+        int | None,
+        Field(description="Maximum number of alerts to return.", examples=[1]),
+    ] = None
+    order: Annotated[
+        str | None,
+        Field(
+            description="SQL expression to order the results by.",
+            examples=["diaSource.visit"],
+        ),
+    ] = None
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of alerts to skip. Only meaningful in combination with limit and order."
+        ),
+    ] = 0
 
     def location_constraint(self) -> Expression | None:
         if self.location is None:
