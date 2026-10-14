@@ -83,6 +83,29 @@ class AstropyTime(BaseModel):
     out_subfmt: str | None = None
     location: tuple[float, float, float] | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "val": 2461327.21,
+                    "format": "jd",
+                },
+                {
+                    "val": 61326.709,
+                    "format": "mjd",
+                },
+                {
+                    "val": 61326.7104,
+                    "format": "mjd",
+                    "scale": "tai",
+                },
+                {
+                    "val": "2026-10-13 17:02:24.000",
+                },
+            ]
+        }
+    }
+
     def to_astropy_time(self) -> Time:
         return Time(
             val=self.val,
@@ -145,6 +168,18 @@ class ConeConstraint(StrictModel):
     radius: float = Field(
         ..., gt=0, lt=10, description="Radius of search cone in degrees"
     )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "ra": 148.7209243190691,
+                    "dec": 2.5807648737978135,
+                    "radius": 0.0027,
+                }
+            ]
+        }
+    }
 
     @cached_property
     def ranges(self) -> multirange[int]:

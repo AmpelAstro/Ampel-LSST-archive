@@ -222,13 +222,21 @@ Column = Annotated[str, AfterValidator(is_valid_column)]
 
 
 class AlertQuery(StrictModel):
-    include: list[Column] | None = None
-    exclude: list[Column] | None = None
-    condition: str | None
+    include: Annotated[
+        list[Column] | None,
+        Field(examples=[["diaSource", "target_name", "observation_reason"]]),
+    ] = None
+    exclude: Annotated[
+        list[Column] | None,
+        Field(examples=[["cutoutTemplate", "cutoutScience", "cutoutDifference"]]),
+    ] = None
+    condition: Annotated[
+        str | None, Field(examples=[["diaSource.reliability > 0.95"]])
+    ] = None
     location: ConeConstraint | HEALpixConstraint | None = None
     time: TimeConstraint | None = None
     limit: int | None = None
-    order: str | None = None
+    order: Annotated[str | None, Field(examples=[["diaSource.visit"]])] = None
     offset: int = 0
 
     def location_constraint(self) -> Expression | None:
