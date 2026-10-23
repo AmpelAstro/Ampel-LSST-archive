@@ -1,5 +1,3 @@
-import contextlib
-
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -526,12 +524,6 @@ if settings.root_path:
 
 # Expose metrics at the root
 instrumentator.expose(app)
-
-# include (internal) kafka router if available
-with contextlib.suppress(ImportError):
-    from .kafka import router as kafka_router
-
-    app.include_router(kafka_router, prefix="/kafka")
 
 
 @app.get("/health", tags=["health"])
