@@ -1,6 +1,6 @@
 
 # renovate: datasource=python-version depName=python versioning=python
-ARG PYTHON_VERSION=3.14.7
+ARG PYTHON_VERSION=3.15.2
 
 FROM python:$PYTHON_VERSION-slim AS base
 
